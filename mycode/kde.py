@@ -66,7 +66,7 @@ class KDE(object):
 
     def _set_bandwidth(self):
         # Auto-tune bandwidth using cross-validation
-        bandwidths = 10 ** np.linspace(-2, 1, 1000)
+        bandwidths = 10 ** np.linspace(-2, 1, 100)
         grid = GridSearchCV(KernelDensity(kernel='gaussian'), {
             'bandwidth': bandwidths}, cv=3, verbose=1)
         grid.fit(self.data)

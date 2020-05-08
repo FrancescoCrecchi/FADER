@@ -5,8 +5,8 @@ from mycode.kdeclassifier import KDEClassifier
 
 class CClassifierKDEBayes(CClassifier):
 
-    def __init__(self, bandwidth=1.0, kernel='gaussian'):
-        super().__init__()
+    def __init__(self, bandwidth=1.0, kernel='gaussian', preprocess=None):
+        super().__init__(preprocess=preprocess)
         self.bandwidth = bandwidth
         self.kernel = kernel
         self._model = KDEClassifier(bandwidth=self.bandwidth, kernel=self.kernel)
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     ts.X = nmz.transform(ts.X)
 
     # Training a classifier
-    clf = CClassifierKDEBayes()  #bandwidth='auto')
+    clf = CClassifierKDEBayes()#(bandwidth='auto')
     clf.fit(tr)
 
     # Compute predictions on a test set
@@ -84,22 +84,23 @@ if __name__ == '__main__':
 
     print("Accuracy on test set: {:.2%}".format(acc))
 
-    # # Plot decision regions
-    # from secml.figure import CFigure
-    #
-    # fig = CFigure(width=5, height=5)
-    #
-    # # Convenience function for plotting the decision function of a classifier
-    # fig.sp.plot_decision_regions(clf, n_grid_points=200)
-    #
-    # fig.sp.plot_ds(ts)
-    # fig.sp.grid(grid_on=False)
-    #
-    # fig.sp.title("Classification regions")
-    # fig.sp.text(0.01, 0.01, "Accuracy on test set: {:.2%}".format(acc),
-    #             bbox=dict(facecolor='white'))
-    # fig.savefig('kdebayes_blobs.png')
+    # Plot decision regions
+    from secml.figure import CFigure
 
+    fig = CFigure(width=5, height=5)
+
+    # Convenience function for plotting the decision function of a classifier
+    fig.sp.plot_decision_regions(clf, n_grid_points=200)
+
+    fig.sp.plot_ds(ts)
+    fig.sp.grid(grid_on=False)
+
+    fig.sp.title("Classification regions")
+    fig.sp.text(0.01, 0.01, "Accuracy on test set: {:.2%}".format(acc),
+                bbox=dict(facecolor='white'))
+    fig.savefig('kdebayes_blobs.png')
+
+    # Test gradient
     w = CArray.zeros(3)
     w[2] = 1
     grad = clf.gradient(ts.X[:10, :], w)

@@ -90,7 +90,7 @@ class TwoLayerNet(nn.Module):
         return y
 
 
-def ptSNE(X, d=2, random_state=None, verbose=0):
+def ptSNE(X, d=2, random_state=None, verbose=0, epochs=500, batch_size=64):
     use_cuda = torch.cuda.is_available()
     if random_state is not None:
         torch.manual_seed(random_state)
@@ -108,11 +108,11 @@ def ptSNE(X, d=2, random_state=None, verbose=0):
     dnn = CRegressorPytorch(dnn,
                             loss=nn.MSELoss(),
                             optimizer=optim.SGD(dnn.parameters(), lr=1e-3),
-                            epochs=500,
-                            batch_size=64,
+                            epochs=epochs,
+                            batch_size=batch_size,
                             input_shape=(D_in,))
     tr = MyDataset(X.astype('float32'), X_embds.astype('float32'))
-    dnn.verbose = 1
+    dnn.verbose = verbose
     dnn.fit(tr)
     # Wrap it in a `CNormalizerDNN` as it is actually a features extractor
     feat_extr = CNormalizerDNN(dnn, out_layer='fc2')
