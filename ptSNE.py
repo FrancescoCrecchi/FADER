@@ -11,6 +11,13 @@ from torch import nn, optim
 from mnist import mnist
 
 
+# class MyNormalizerDNN(CNormalizerDNN):
+#
+#     @property
+#     def classes(self):
+#         return self.net.classes
+
+
 class CRegressorPytorch(CClassifierPyTorch):
 
     def fit(self, dataset, n_jobs=1):
@@ -40,20 +47,21 @@ class CRegressorPytorch(CClassifierPyTorch):
             raise TypeError(
                 "training set should be provided as a CDataset object.")
 
-        # Storing dataset classes
-        self._classes = dataset.classes
-        self._n_features = dataset.num_features
-
-        data_x = dataset.X
+        data_x, data_y = dataset.X, dataset.Y
         # Transform data if a preprocess is defined
         if self.preprocess is not None:
-            data_x = self.preprocess.fit_transform(dataset.X)
+            data_x = self.preprocess.fit_transform(data_x)
+
+        # Storing dataset classes
+        # TODO: CHECK POSSIBLE NON-FLAT SHAPES!
+        self._classes = data_y.shape[1]
+        self._n_features = data_x.shape[1]
 
         # Data is ready: fit the classifier
         try:  # Try to use parallelization
-            self._fit(MyDataset(data_x, dataset.Y), n_jobs=n_jobs)
+            self._fit(MyDataset(data_x, data_y), n_jobs=n_jobs)
         except TypeError:  # Parallelization is probably not supported
-            self._fit(MyDataset(data_x, dataset.Y))
+            self._fit(MyDataset(data_x, data_y))
 
         return self
 
@@ -114,8 +122,8 @@ def ptSNE(dset, d=2, random_state=None, verbose=0, epochs=500, batch_size=64, pr
     # Create DNN
     dnn = TwoLayerNet(D_in, H, D_out)
     # Compute tSNE mappings
-    # X_embds = CArray(TSNE(n_components=d, random_state=random_state, verbose=verbose).fit_transform(X.tondarray()))
-    X_embds = CArray.randn((X.shape[0], d)) # TODO: REMOVE THIS!
+    X_embds = CArray(TSNE(n_components=d, random_state=random_state, verbose=verbose).fit_transform(X.tondarray()))
+    # X_embds = CArray.randn((X.shape[0], d)) # TODO: REMOVE THIS!
     # Wrap `dnn` in a `CRegressorPytorch` and fit
     dnn = CRegressorPytorch(dnn,
                             loss=nn.MSELoss(),
@@ -131,6 +139,45 @@ def ptSNE(dset, d=2, random_state=None, verbose=0, epochs=500, batch_size=64, pr
     feat_extr = CNormalizerDNN(dnn, out_layer='fc2')
 
     return feat_extr
+
+
+# def ptSNE(dset, d=2, random_state=None, verbose=0, epochs=500, batch_size=64, preprocess=None):
+#     use_cuda = torch.cuda.is_available()
+#     if random_state is not None:
+#         torch.manual_seed(random_state)
+#     if use_cuda:
+#         torch.backends.cudnn.deterministic = True
+#     # Unpack data
+#     X, y = dset.X, dset.Y
+#     # Computing 'out_layer' feature dims
+#     lidx = [l[0] for l in preprocess.net.layers].index(preprocess.out_layer)
+#     out_feats = preprocess.net.layers[lidx][1].out_features
+#     # Setting DNN params
+#     D_in = out_feats
+#     H = 1000
+#     D_out = d
+#     # Create DNN
+#     dnn = TwoLayerNet(D_in, H, D_out)
+#     # Compute tSNE mappings
+#     # X_embds = CArray(TSNE(n_components=d, random_state=random_state, verbose=verbose).fit_transform(X.tondarray()))
+#     X_embds = CArray.randn((X.shape[0], d)) # TODO: REMOVE THIS!
+#     # Wrap `dnn` in a `CRegressorPytorch` and fit
+#     dnn = CRegressorPytorch(dnn,
+#                             loss=nn.MSELoss(),
+#                             optimizer=optim.SGD(dnn.parameters(), lr=1e-3),
+#                             epochs=epochs,
+#                             batch_size=batch_size,
+#                             input_shape=(out_feats,),
+#                             preprocess=None)
+#     # Split forward pass
+#     X = preprocess.transform(X)
+#     tr = MyDataset(X.astype('float32'), X_embds.astype('float32'))
+#     dnn.verbose = verbose
+#     dnn.fit(tr)
+#     # Wrap it in a `CNormalizerDNN` as it is actually a features extractor
+#     feat_extr = CNormalizerDNN(dnn, out_layer='fc2')
+#
+#     return feat_extr
 
 
 N_TRAIN = 30000
@@ -161,39 +208,46 @@ if __name__ == '__main__':
     sample = tr[N_TRAIN:N_TRAIN+3000, :]
     feat_extr = ptSNE(sample,
                       d=2,
-                      epochs=1,
+                      # epochs=1,
                       preprocess=dnn_feats,
                       random_state=random_state,
                       verbose=1)
     X_embds = feat_extr.transform(sample.X)
 
-    # from secml.figure import CFigure
-    # import numpy as np
-    # import matplotlib.cm as cm
-    #
-    # fig = CFigure(10, 12)
-    # colors = np.array(cm.tab10.colors)
-    # for i in range(10):
-    #     cl_idxs = CArray(np.where(sample.Y.tondarray() == i)[0])
-    #     fig.sp.scatter(X_embds[cl_idxs, 0], X_embds[cl_idxs, 1], label='{}'.format(i), alpha=.7, c=colors[i][None, :])
-    #
-    # fig.sp.legend()
-    # fig.sp.grid()
-    # fig.savefig('ptSNE_mnist.png')
+    from secml.figure import CFigure
+    import numpy as np
+    import matplotlib.cm as cm
+
+    fig = CFigure(10, 12)
+    colors = np.array(cm.tab10.colors)
+    for i in range(10):
+        cl_idxs = CArray(np.where(sample.Y.tondarray() == i)[0])
+        fig.sp.scatter(X_embds[cl_idxs, 0], X_embds[cl_idxs, 1], label='{}'.format(i), alpha=.7, c=colors[i][None, :])
+
+    fig.sp.legend()
+    fig.sp.grid()
+    fig.savefig('ptSNE_mnist.png')
 
     # Test gradient
-    x = sample.X[0, :]
+    x = sample.X[:10, :]
     w = feat_extr.forward(x)
     grad = feat_extr.gradient(x, w=w)
+    print(grad.shape)
 
-    # ========= SPLITTING =========
-    feat_extr.preprocess = None
-    # Forward
-    e = dnn_feats.forward(x)
-    y = feat_extr.forward(e)
-    # Backward
-    de = feat_extr.gradient(e, y)
-    dx = dnn_feats.gradient(x, de)
+    # # ========= SPLITTING =========
+    # # feat_extr.preprocess = None
+    # # Forward
+    # e = dnn_feats.forward(x)
+    # y = feat_extr.forward(e)
+    # # Backward
+    # de = feat_extr.gradient(e, y)
+    # dx = dnn_feats.gradient(x, de)
+
+    # # Numerical gradient check
+    # from secml.ml.classifiers.tests.c_classifier_testcases import CClassifierTestCases
+    #
+    # CClassifierTestCases.setUpClass()
+    # CClassifierTestCases()._test_gradient_numerical(feat_extr, sample.X[0, :])
 
     print("done?")
 
