@@ -26,11 +26,12 @@ class CClassifierKDEBayes(CClassifier):
     def _backward(self, w):
         """Compute the decision function gradient wrt x, and accumulate w."""
         # TODO: HANDLE `w is None` CASE!
+        w = w.atleast_2d()
         X = self._cached_x.tondarray()
         grad = CArray.zeros(X.shape)
         # TODO: NEED TO VECTORIZE THIS!
         for i, x in enumerate(X):
-            gi_ = self._model.grad_x(x, w.argmax())
+            gi_ = self._model.grad_x(x, w[i, :].argmax())
             grad[i, :] = CArray(gi_)
 
         return grad
@@ -72,7 +73,7 @@ if __name__ == '__main__':
     ts.X = nmz.transform(ts.X)
 
     # Training a classifier
-    clf = CClassifierKDEBayes()#(bandwidth='auto')
+    clf = CClassifierKDEBayes(bandwidth='auto')
     clf.fit(tr)
 
     # Compute predictions on a test set
@@ -101,9 +102,10 @@ if __name__ == '__main__':
     fig.savefig('kdebayes_blobs.png')
 
     # Test gradient
-    w = CArray.zeros(3)
-    w[2] = 1
-    grad = clf.gradient(ts.X[:10, :], w)
+    x = tr.X[:10, :]
+    w = clf.forward(x)
+    grad = clf.gradient(x, w=w)
+    print(grad.shape)
 
     # Numerical gradient check
     from secml.ml.classifiers.tests.c_classifier_testcases import CClassifierTestCases

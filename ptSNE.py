@@ -179,6 +179,16 @@ def ptSNE(dset, d=2, random_state=None, verbose=0, epochs=500, batch_size=64, pr
 #
 #     return feat_extr
 
+def scatter_plot(sp, X, y):
+    assert len(X.shape) == 2, "X must be 2d!"
+    import numpy as np
+    import matplotlib.cm as cm
+
+    colors = np.array(cm.tab10.colors)
+    for i in range(10):
+        cl_idxs = CArray(np.where(y.tondarray() == i)[0])
+        sp.scatter(X[cl_idxs, 0], X[cl_idxs, 1], label='{}'.format(i), alpha=.7, c=colors[i][None, :])
+
 
 N_TRAIN = 30000
 if __name__ == '__main__':
@@ -214,16 +224,11 @@ if __name__ == '__main__':
                       verbose=1)
     X_embds = feat_extr.transform(sample.X)
 
+    # Plot
     from secml.figure import CFigure
-    import numpy as np
-    import matplotlib.cm as cm
 
     fig = CFigure(10, 12)
-    colors = np.array(cm.tab10.colors)
-    for i in range(10):
-        cl_idxs = CArray(np.where(sample.Y.tondarray() == i)[0])
-        fig.sp.scatter(X_embds[cl_idxs, 0], X_embds[cl_idxs, 1], label='{}'.format(i), alpha=.7, c=colors[i][None, :])
-
+    scatter_plot(fig.sp, X_embds, sample.Y)
     fig.sp.legend()
     fig.sp.grid()
     fig.savefig('ptSNE_mnist.png')
@@ -243,6 +248,7 @@ if __name__ == '__main__':
     # de = feat_extr.gradient(e, y)
     # dx = dnn_feats.gradient(x, de)
 
+    # TODO: CHECK GRADIENT! (SOMETHING WRONG HERE!)
     # # Numerical gradient check
     # from secml.ml.classifiers.tests.c_classifier_testcases import CClassifierTestCases
     #
