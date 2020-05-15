@@ -10,10 +10,9 @@ from secml.array import CArray
 from secml.data.loader import CDLRandom
 from secml.figure import CFigure
 from secml.ml.classifiers import CClassifier
-from secml.ml.classifiers.clf_utils import \
-    check_binary_labels, convert_binary_labels
+from secml.ml.classifiers.clf_utils import convert_binary_labels
 from secml.ml.features import CNormalizerMinMax
-from secml.ml.kernels import CKernel, CKernelRBF
+from secml.ml.kernels import CKernel
 
 
 class CClassifierKDE(CClassifier):
@@ -86,7 +85,7 @@ class CClassifierKDE(CClassifier):
     def training_samples(self, value):
         self._training_samples = value
 
-    def _fit(self, dataset):
+    def _fit(self, X, y):
         """Trains the One-Vs-All Kernel Density Estimator classifier.
 
         The following is a private method computing one single
@@ -107,17 +106,17 @@ class CClassifierKDE(CClassifier):
             Instance of the KDE classifier trained using input dataset.
 
         """
-        if dataset.num_classes > 2:
+        if y.unique().size > 2:
             raise ValueError("training can be performed on (1-classes) "
                              "or binary datasets only. If dataset is binary "
                              "only negative class are considered.")
 
-        negative_samples_idx = dataset.Y.find(dataset.Y == 0)
+        negative_samples_idx = y.find(y == 0)
 
         if negative_samples_idx is None:
             raise ValueError("training set must contain same negative samples")
 
-        self._training_samples = dataset.X[negative_samples_idx, :]
+        self._training_samples = X[negative_samples_idx, :]
 
         self.logger.info("Number of training samples: {:}"
                          "".format(self._training_samples.shape[0]))
@@ -216,7 +215,7 @@ if __name__ == '__main__':
           [(k, best_params[k]) for k in sorted(best_params)])
 
     # Retrain classifier
-    kde.fit(dataset)
+    kde.fit(dataset.X, dataset.Y)
 
     # Predict
     s = kde.decision_function(dataset.X[:10, :])
