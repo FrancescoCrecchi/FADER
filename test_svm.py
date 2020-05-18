@@ -1,18 +1,12 @@
-from setGPU import setGPU
-setGPU(3)
-
 import os
 
+from secml.ml.classifiers import CClassifierSVM
 from secml.ml.classifiers.multiclass import CClassifierMulticlassOVA
 from secml.ml.features import CNormalizerDNN, CNormalizerMinMax
 from secml.ml.kernels import CKernelRBF
 from secml.ml.peval.metrics import CMetricAccuracy
-from secml.data import CDataset
-from secml.figure import CFigure
 
-from c_classifier_kde import CClassifierKDE
 from mnist import mnist
-from ptSNE import ptSNE
 
 
 def eval(clf, dset):
@@ -27,6 +21,9 @@ N_TRAIN_DNN = 30000
 N_TRAIN_CLF = 3000
 
 if __name__ == '__main__':
+
+    from setGPU import setGPU
+    setGPU()
 
     random_state = 999
 
@@ -54,22 +51,14 @@ if __name__ == '__main__':
 
     # Compose classifier
     sample = tr[N_TRAIN_DNN:N_TRAIN_DNN + N_TRAIN_CLF, :]
-    feat_extr, _ = ptSNE(sample,
-                         d=2,
-                         hidden_size=64,
-                         epochs=100,
-                         batch_size=128,
-                         preprocess=dnn_feats,
-                         random_state=random_state,
-                         verbose=1)
-    nmz = CNormalizerMinMax(preprocess=feat_extr)
-    clf = CClassifierMulticlassOVA(classifier=CClassifierKDE,
-                                   kernel=CKernelRBF(gamma=100),
-                                   preprocess=nmz)
+    # nmz = CNormalizerMinMax(preprocess=dnn_feats)
+    clf = CClassifierMulticlassOVA(classifier=CClassifierSVM,
+                                   kernel=CKernelRBF(gamma=0.1),
+                                   preprocess=dnn_feats)
 
     # Fit
     clf_tr = tr[N_TRAIN_DNN + N_TRAIN_CLF:N_TRAIN_DNN + 2 * N_TRAIN_CLF, :]
-    clf.fit(clf_tr.X, clf_tr.Y)
+    clf.fit(clf_tr)
 
     tr_acc = eval(clf, clf_tr)
     print("Accuracy on training set: {:.2%}".format(tr_acc))
@@ -79,24 +68,24 @@ if __name__ == '__main__':
     ts_acc = eval(clf, cl_ts)
     print("Accuracy on test set: {:.2%}".format(ts_acc))
 
-    # --------- Plot ---------
-    embds = clf.preprocess.transform(clf_tr.X)
-    clf.preprocess = None
-
-    fig = CFigure(10, 12)
-    # Decision function
-    fig.sp.plot_decision_regions(clf, n_grid_points=200)
-    # Plot embds dataset
-    foo_ds = CDataset(embds, clf_tr.Y)
-    fig.sp.plot_ds(foo_ds, alpha=0.5)
-    # Extras
-    fig.sp.legend()
-    fig.sp.grid()
-    fig.savefig('test_compose.png')
-
-    # Restore preprocessing
-    clf.preprocess = nmz
-
+    # # --------- Plot ---------
+    # embds = clf.preprocess.transform(clf_tr.X)
+    # clf.preprocess = None
+    #
+    # fig = CFigure(10, 12)
+    # # Decision function
+    # fig.sp.plot_decision_regions(clf, n_grid_points=200)
+    # # Plot embds dataset
+    # foo_ds = CDataset(embds, clf_tr.Y)
+    # fig.sp.plot_ds(foo_ds, alpha=0.5)
+    # # Extras
+    # fig.sp.legend()
+    # fig.sp.grid()
+    # fig.savefig('test_compose.png')
+    #
+    # # Restore preprocessing
+    # clf.preprocess = nmz
+    #
     # --------- Backward ---------
 
     # Test gradient
