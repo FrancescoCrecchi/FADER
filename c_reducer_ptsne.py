@@ -1,12 +1,11 @@
-from setGPU import setGPU
-
-setGPU(3)
+# from setGPU import setGPU
+# setGPU(3)
 
 import os
-from secml.ml import CReducer, CClassifierDNN, CNormalizerDNN
+
 from secml.array import CArray
+from secml.ml import CReducer, CNormalizerDNN
 from sklearn.manifold import TSNE
-from secml.data.splitter import CDataSplitterKFold
 from torch import nn
 
 from mnist import mnist
@@ -75,12 +74,14 @@ class CReducerPTSNE(CReducer):
         return self._mlp.is_fitted()
 
     def _forward(self, x):
-        out = self._mlp.decision_function(x)
+        out = self._mlp.forward(x)
         return out
 
     def _backward(self, w):
-        raise NotImplementedError()
-
+        # TODO: CHECK THIS!
+        grad = self._mlp.backward(w)
+        return grad
+    
 
 N_TRAIN = 30000
 if __name__ == '__main__':
@@ -112,16 +113,6 @@ if __name__ == '__main__':
     feat_extr = CReducerPTSNE(preprocess=dnn_feats,
                               random_state=random_state,
                               verbose=1)
-    # Xval
-    xval_splitter = CDataSplitterKFold(num_folds=3, random_state=random_state)
-    params_grid = sum([[[l] * k for l in [8, 32, 64, 128]] for k in range(1, 2)], [])
-    best_params = feat_extr._mlp.estimate_parameters(sample,
-                                                     parameters={'n_hiddens': params_grid},
-                                                     splitter=xval_splitter,
-                                                     metric='mse')
-    print("The best training parameters are: ",
-          [(k, best_params[k]) for k in sorted(best_params)])
-
     feat_extr.fit(sample.X)
     X_embds = feat_extr.transform(sample.X)
 

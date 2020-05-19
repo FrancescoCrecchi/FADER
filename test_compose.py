@@ -1,3 +1,4 @@
+from secml.data.splitter import CDataSplitterKFold
 from setGPU import setGPU
 setGPU(3)
 
@@ -11,6 +12,7 @@ from secml.data import CDataset
 from secml.figure import CFigure
 
 from c_classifier_kde import CClassifierKDE
+from c_reducer_ptsne import CReducerPTSNE
 from mnist import mnist
 from ptSNE import ptSNE
 
@@ -54,21 +56,46 @@ if __name__ == '__main__':
 
     # Compose classifier
     sample = tr[N_TRAIN_DNN:N_TRAIN_DNN + N_TRAIN_CLF, :]
-    feat_extr, _ = ptSNE(sample,
-                         d=2,
-                         hidden_size=64,
-                         epochs=100,
-                         batch_size=128,
-                         preprocess=dnn_feats,
-                         random_state=random_state,
-                         verbose=1)
+    # feat_extr, _ = ptSNE(sample,
+    #                      d=2,
+    #                      hidden_size=64,
+    #                      epochs=100,
+    #                      batch_size=128,
+    #                      preprocess=dnn_feats,
+    #                      random_state=random_state,
+    #                      verbose=1)
+    feat_extr = CReducerPTSNE(n_components=2,
+                              n_hiddens=64,
+                              epochs=100,
+                              batch_size=128,
+                              preprocess=dnn_feats,
+                              random_state=random_state,
+                              verbose=1)
     nmz = CNormalizerMinMax(preprocess=feat_extr)
     clf = CClassifierMulticlassOVA(classifier=CClassifierKDE,
                                    kernel=CKernelRBF(gamma=100),
                                    preprocess=nmz)
 
-    # Fit
+    # Sample for clf training
     clf_tr = tr[N_TRAIN_DNN + N_TRAIN_CLF:N_TRAIN_DNN + 2 * N_TRAIN_CLF, :]
+
+    # Xval
+    xval_splitter = CDataSplitterKFold(num_folds=3, random_state=random_state)
+
+    def compute_hiddens(n_hiddens, n_layers):
+        return sum([[[l] * k for l in n_hiddens] for k in range(1, n_layers+1)], [])
+
+    params_grid = {
+        'preprocess.preprocess.n_hiddens': compute_hiddens([8, 32, 64, 128], 1)
+    }
+    best_params = clf.estimate_parameters(clf_tr,
+                                          parameters=params_grid,
+                                          splitter=xval_splitter,
+                                          metric='accuracy')
+    print("The best training parameters are: ",
+          [(k, best_params[k]) for k in sorted(best_params)])
+
+    # Fit
     clf.fit(clf_tr.X, clf_tr.Y)
 
     tr_acc = eval(clf, clf_tr)
@@ -79,23 +106,23 @@ if __name__ == '__main__':
     ts_acc = eval(clf, cl_ts)
     print("Accuracy on test set: {:.2%}".format(ts_acc))
 
-    # --------- Plot ---------
-    embds = clf.preprocess.transform(clf_tr.X)
-    clf.preprocess = None
-
-    fig = CFigure(10, 12)
-    # Decision function
-    fig.sp.plot_decision_regions(clf, n_grid_points=200)
-    # Plot embds dataset
-    foo_ds = CDataset(embds, clf_tr.Y)
-    fig.sp.plot_ds(foo_ds, alpha=0.5)
-    # Extras
-    fig.sp.legend()
-    fig.sp.grid()
-    fig.savefig('test_compose.png')
-
-    # Restore preprocessing
-    clf.preprocess = nmz
+    # # --------- Plot ---------
+    # embds = clf.preprocess.transform(clf_tr.X)
+    # clf.preprocess = None
+    #
+    # fig = CFigure(10, 12)
+    # # Decision function
+    # fig.sp.plot_decision_regions(clf, n_grid_points=200)
+    # # Plot embds dataset
+    # foo_ds = CDataset(embds, clf_tr.Y)
+    # fig.sp.plot_ds(foo_ds, alpha=0.5)
+    # # Extras
+    # fig.sp.legend()
+    # fig.sp.grid()
+    # fig.savefig('test_compose.png')
+    #
+    # # Restore preprocessing
+    # clf.preprocess = nmz
 
     # --------- Backward ---------
 
