@@ -9,8 +9,8 @@ from sklearn.manifold import TSNE
 from secml.array import CArray
 from secml.ml.features import CNormalizerDNN
 
-from mnist import mnist
-from torch_nn import MLPytorch
+from mnist.mnist import mnist
+from components.torch_nn import MLPytorch
 
 
 # class CRegressorPytorch(CClassifierPyTorch):
@@ -98,7 +98,7 @@ if __name__ == '__main__':
 
     # Get dnn
     dnn = mnist()
-    if not os.path.exists("mnist.pkl"):
+    if not os.path.exists("../mnist/mnist.pkl"):
         dnn.verbose = 1
         dnn.fit(tr[:N_TRAIN, :])
         dnn.save_model("mnist.pkl")

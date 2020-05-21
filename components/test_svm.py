@@ -2,11 +2,11 @@ import os
 
 from secml.ml.classifiers import CClassifierSVM
 from secml.ml.classifiers.multiclass import CClassifierMulticlassOVA
-from secml.ml.features import CNormalizerDNN, CNormalizerMinMax
+from secml.ml.features import CNormalizerDNN
 from secml.ml.kernels import CKernelRBF
 from secml.ml.peval.metrics import CMetricAccuracy
 
-from mnist import mnist
+from mnist.mnist import mnist
 
 
 def eval(clf, dset):
@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
     # Get dnn
     dnn = mnist()
-    if not os.path.exists("mnist.pkl"):
+    if not os.path.exists("../mnist/mnist.pkl"):
         dnn.verbose = 1
         dnn.fit(tr[:N_TRAIN_DNN, :])
         dnn.save_model("mnist.pkl")

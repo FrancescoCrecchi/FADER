@@ -8,7 +8,7 @@ from secml.data.loader import CDataLoaderMNIST
 from cleverhans.attacks import FastGradientMethod
 from secml.ml.peval.metrics import CMetricAccuracy, CMetric
 
-from mnist import mnist
+from mnist.mnist import mnist
 
 
 def eval(clf, dset):
@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     # Get dnn
     dnn = mnist()
-    if not os.path.exists("mnist.pkl"):
+    if not os.path.exists("../mnist/mnist.pkl"):
         dnn.verbose = 1
         dnn.fit(tr.X, tr.Y)
         dnn.save_model("mnist.pkl")

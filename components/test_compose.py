@@ -1,4 +1,3 @@
-from secml.data.splitter import CDataSplitterKFold
 from setGPU import setGPU
 setGPU(3)
 
@@ -8,13 +7,10 @@ from secml.ml.classifiers.multiclass import CClassifierMulticlassOVA
 from secml.ml.features import CNormalizerDNN, CNormalizerMinMax
 from secml.ml.kernels import CKernelRBF
 from secml.ml.peval.metrics import CMetricAccuracy
-from secml.data import CDataset
-from secml.figure import CFigure
 
-from c_classifier_kde import CClassifierKDE
-from c_reducer_ptsne import CReducerPTSNE
-from mnist import mnist
-from ptSNE import ptSNE
+from components.c_classifier_kde import CClassifierKDE
+from components.c_reducer_ptsne import CReducerPTSNE
+from mnist.mnist import mnist
 
 
 def eval(clf, dset):
@@ -44,7 +40,7 @@ if __name__ == '__main__':
 
     # Get dnn
     dnn = mnist()
-    if not os.path.exists("mnist.pkl"):
+    if not os.path.exists("../mnist/mnist.pkl"):
         dnn.verbose = 1
         dnn.fit(tr[:N_TRAIN_DNN, :])
         dnn.save_model("mnist.pkl")
@@ -52,18 +48,10 @@ if __name__ == '__main__':
         dnn.load_model("mnist.pkl")
 
     # Wrap it with `CNormalizerDNN`
-    dnn_feats = CNormalizerDNN(dnn, out_layer='fc3')
+    dnn_feats = CNormalizerDNN(dnn)#, out_layer='fc1')
 
     # Compose classifier
     sample = tr[N_TRAIN_DNN:N_TRAIN_DNN + N_TRAIN_CLF, :]
-    # feat_extr, _ = ptSNE(sample,
-    #                      d=2,
-    #                      hidden_size=64,
-    #                      epochs=100,
-    #                      batch_size=128,
-    #                      preprocess=dnn_feats,
-    #                      random_state=random_state,
-    #                      verbose=1)
     feat_extr = CReducerPTSNE(n_components=2,
                               n_hiddens=64,
                               epochs=100,
@@ -79,21 +67,24 @@ if __name__ == '__main__':
     # Sample for clf training
     clf_tr = tr[N_TRAIN_DNN + N_TRAIN_CLF:N_TRAIN_DNN + 2 * N_TRAIN_CLF, :]
 
-    # Xval
-    xval_splitter = CDataSplitterKFold(num_folds=3, random_state=random_state)
-
-    def compute_hiddens(n_hiddens, n_layers):
-        return sum([[[l] * k for l in n_hiddens] for k in range(1, n_layers+1)], [])
-
-    params_grid = {
-        'preprocess.preprocess.n_hiddens': compute_hiddens([8, 32, 64, 128], 1)
-    }
-    best_params = clf.estimate_parameters(clf_tr,
-                                          parameters=params_grid,
-                                          splitter=xval_splitter,
-                                          metric='accuracy')
-    print("The best training parameters are: ",
-          [(k, best_params[k]) for k in sorted(best_params)])
+    # # Xval
+    # xval_splitter = CDataSplitterKFold(num_folds=3, random_state=random_state)
+    #
+    # def compute_hiddens(n_hiddens, n_layers):
+    #     return sum([[[l] * k for l in n_hiddens] for k in range(1, n_layers+1)], [])
+    #
+    # params_grid = {
+    #     'preprocess.preprocess.n_hiddens': [128, 64], #compute_hiddens([8, 64, 128], 1),
+    #     # 'preprocess.preprocess.n_components': [2, 4]
+    #     'kernel.gamma': [1, 10, 100]
+    # }
+    # clf.verbose = 1
+    # best_params = clf.estimate_parameters(clf_tr,
+    #                                       parameters=params_grid,
+    #                                       splitter=xval_splitter,
+    #                                       metric='accuracy')
+    # print("The best training parameters are: ",
+    #       [(k, best_params[k]) for k in sorted(best_params)])
 
     # Fit
     clf.fit(clf_tr.X, clf_tr.Y)

@@ -1,11 +1,10 @@
 from secml.data.loader import CDLRandom
-from secml.data.splitter import CDataSplitterKFold
 from secml.figure import CFigure
 from secml.ml.classifiers.multiclass import CClassifierMulticlassOVA
 from secml.ml.features import CNormalizerMinMax
 from secml.ml.kernels import CKernelRBF
 
-from c_classifier_kde import CClassifierKDE
+from components.c_classifier_kde import CClassifierKDE
 
 if __name__ == '__main__':
 

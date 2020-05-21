@@ -8,9 +8,9 @@ from secml.ml import CReducer, CNormalizerDNN
 from sklearn.manifold import TSNE
 from torch import nn
 
-from mnist import mnist
-from ptSNE import scatter_plot
-from torch_nn import MLPytorch
+from mnist.mnist import mnist
+from components.ptSNE import scatter_plot
+from components.torch_nn import MLPytorch
 
 
 class CReducerPTSNE(CReducer):
@@ -20,7 +20,6 @@ class CReducerPTSNE(CReducer):
                  n_hiddens=100,
                  epochs=100,
                  batch_size=64,
-                 verbose=0,
                  random_state=None,
                  preprocess=None):
 
@@ -28,7 +27,6 @@ class CReducerPTSNE(CReducer):
         self.n_hiddens = n_hiddens
         self.epochs = epochs
         self.batch_size = batch_size
-        self.verbose = verbose
         self.random_state = random_state
 
         self._preprocess_ = preprocess
@@ -41,7 +39,10 @@ class CReducerPTSNE(CReducer):
         # Check preprocess has type `CClassifierDNN`
         if self._preprocess_ and self._preprocess_.__class__ is CNormalizerDNN:
             # Computing 'out_layer' feature dims
-            lidx = [l[0] for l in self._preprocess_.net.layers].index(self._preprocess_.out_layer)
+            if self._preprocess_.out_layer:
+                lidx = [l[0] for l in self._preprocess_.net.layers].index(self._preprocess_.out_layer)
+            else:
+                lidx = -1  # last layer
             out_feats = self._preprocess_.net.layers[lidx][1].out_features
         else:
             out_feats = x.shape[1]
@@ -78,10 +79,9 @@ class CReducerPTSNE(CReducer):
         return out
 
     def _backward(self, w):
-        # TODO: CHECK THIS!
         grad = self._mlp.backward(w)
         return grad
-    
+
 
 N_TRAIN = 30000
 if __name__ == '__main__':
@@ -98,7 +98,7 @@ if __name__ == '__main__':
 
     # Get dnn
     dnn = mnist()
-    if not os.path.exists("mnist.pkl"):
+    if not os.path.exists("../mnist/mnist.pkl"):
         dnn.verbose = 1
         dnn.fit(tr[:N_TRAIN, :])
         dnn.save_model("mnist.pkl")

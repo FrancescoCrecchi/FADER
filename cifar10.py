@@ -74,6 +74,9 @@ features:
 classifier:
     0 - 10
 """
+from setGPU import setGPU
+setGPU(3)
+
 import torch
 from torch import nn, optim
 
@@ -155,31 +158,35 @@ def cifar10(lr=1e-2, momentum=0.9, weight_decay=1e-2, preprocess=None,
 
 
 if __name__ == "__main__":
-    import setGPU
-    from secml.data.loader import CDataLoaderCIFAR10
-    from secml.ml.features import CNormalizerMeanStd
+    random_state = 999
 
-    # Load and normalize data
+    # Load data
+    from secml.data.loader import CDataLoaderCIFAR10
     tr, ts = CDataLoaderCIFAR10().load()
+
+    # Normalize
     tr.X /= 255.
     ts.X /= 255.
 
-    # nmz = CNormalizerMeanStd(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
-    # tr.X = nmz.fit_transform(tr.X)
-    # ts.X = nmz.transform(ts.X)
+    # Select 40K samples to train DNN
+    from secml.data.splitter import CTrainTestSplit
+    tr, vl = CTrainTestSplit(train_size=40000, random_state=random_state).split(tr)
 
-    # Create and fit clf
-    clf = cifar10()
+    # Fit DNN
+    dnn = cifar10()
+    dnn.verbose = 1  # Can be used to display training process output
+
     print("Training started...")
-    clf.fit(tr)
+    dnn.fit(tr.X, tr.Y)
+    dnn.verbose = 0
     print("Training completed!")
 
-    # Compute performance on test data
-    label_torch = clf.predict(ts.X, return_decision_function=False)
-
+    y_pred = dnn.predict(ts.X, return_decision_function=False)
     from secml.ml.peval.metrics import CMetric
-    acc_torch = CMetric.create('accuracy').performance_score(ts.Y, label_torch)
+
+    acc_torch = CMetric.create('accuracy').performance_score(ts.Y, y_pred)
+
     print("Model Accuracy: {}".format(acc_torch))
 
-    # Save model
-    clf.save_model("cifar10_cnn.pkl")
+    # Save to disk
+    dnn.save_model('cifar10.pkl')

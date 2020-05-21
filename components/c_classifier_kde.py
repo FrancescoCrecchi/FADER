@@ -123,39 +123,6 @@ class CClassifierKDE(CClassifier):
 
         return self
 
-    # def decision_function(self, x, y=1):
-    #     """Computes the decision function for each pattern in x.
-    #
-    #     If a preprocess has been specified, input is normalized
-    #      before computing the decision function.
-    #
-    #     Parameters
-    #     ----------
-    #     x : CArray
-    #         Array with new patterns to classify, 2-Dimensional of shape
-    #         (n_patterns, n_features).
-    #     y : {0, 1}, optional
-    #         The label of the class wrt the function should be calculated.
-    #         Default is 1.
-    #
-    #     Returns
-    #     -------
-    #     score : CArray
-    #         Value of the decision function for each test pattern.
-    #         Dense flat array of shape (n_patterns,).
-    #
-    #     """
-    #     if not self.is_fitted():
-    #         raise ValueError("make sure the classifier is trained first.")
-    #
-    #     x = x.atleast_2d()  # Ensuring input is 2-D
-    #
-    #     # Preprocessing data if a preprocess is defined
-    #     if self.preprocess is not None:
-    #         x = self.preprocess.normalize(x)
-    #
-    #     return self._decision_function(x, y=y)
-
     def _forward(self, x):
         """Computes the decision function for each pattern in x.
 
