@@ -1,15 +1,16 @@
 from secml.adv.attacks import CAttackEvasionPGD
 from secml.figure import CFigure
 
-from mnist import mnist, get_datasets
+from mnist.cnn_mnist import cnn_mnist_model
+from mnist.fit_dnn import get_datasets
 
 
 random_state = 999
 tr, _, ts = get_datasets(random_state)
 
 # Load classifier
-dnn = mnist()
-dnn.load_model('mnist.pkl')
+dnn = cnn_mnist_model()
+dnn.load_model('cnn_mnist.pkl')
 
 # Check test performance
 y_pred = dnn.predict(ts.X, return_decision_function=False)
@@ -27,7 +28,7 @@ x0, y0 = dbg[0, :].X, dbg[0, :].Y
 noise_type = 'l2'  # Type of perturbation 'l1' or 'l2'
 dmax = 3.0  # Maximum perturbation
 lb, ub = 0., 1.  # Bounds of the attack space. Can be set to `None` for unbounded
-y_target = None  # None if `error-generic` or a class label for `error-specific`
+y_target = 8  # None if `error-generic` or a class label for `error-specific`
 
 # Should be chosen depending on the optimization problem
 solver_params = {
@@ -75,5 +76,7 @@ fig.sp.xlabel('Iteration')
 fig.sp.ylabel('Confidence')
 fig.sp.legend()
 fig.savefig("attack_confidence.png")
+
+# TODO: Dump attack to disk
 
 

@@ -74,9 +74,6 @@ features:
 classifier:
     0 - 10
 """
-from setGPU import setGPU
-setGPU(3)
-
 import torch
 from torch import nn, optim
 
@@ -153,7 +150,7 @@ def cifar10(lr=1e-2, momentum=0.9, weight_decay=1e-2, preprocess=None,
     return CClassifierPyTorch(model=model, loss=loss, optimizer=optimizer,
                               optimizer_scheduler=scheduler, epochs=epochs,
                               input_shape=(3, 32, 32), preprocess=preprocess,
-                              random_state=None, batch_size=batch_size,
+                              random_state=random_state, batch_size=batch_size,
                               softmax_outputs=softmax_outputs)
 
 

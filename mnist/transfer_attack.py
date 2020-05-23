@@ -1,6 +1,7 @@
 from secml.adv.attacks import CAttackEvasionPGD
 from secml.adv.seceval import CSecEval
 from secml.array import CArray
+from secml.ml.classifiers.reject import CClassifierRejectThreshold
 
 from mnist.cnn_mnist import cnn_mnist_model
 from mnist.fit_dnn import get_datasets
@@ -40,7 +41,7 @@ def security_evaluation(dset, clf, surr, surr_dset, evals):
     return seval
 
 
-N_SAMPLES = 1000        # TODO: restore full dataset
+N_SAMPLES = 1000       # TODO: restore full dataset
 if __name__ == '__main__':
     random_state = 999
     tr, _, ts = get_datasets(random_state)
@@ -49,16 +50,14 @@ if __name__ == '__main__':
     dnn = cnn_mnist_model()
     dnn.load_model('cnn_mnist.pkl')
 
-    # Check test performance
-    y_pred = dnn.predict(ts.X, return_decision_function=False)
-
-    from secml.ml.peval.metrics import CMetric
-    acc_torch = CMetric.create('accuracy').performance_score(ts.Y, y_pred)
-    print("Model Accuracy: {}".format(acc_torch))
+    # Load clf_rej
+    clf_rej = CClassifierRejectThreshold.load('clf_rej.gz')
+    # Set threshold
+    clf_rej.threshold = clf_rej.compute_threshold(0.1, ts)
 
     # "Used to perturb all test samples"
     eps = CArray.arange(start=0, step=0.5, stop=5.1)
-    sec_eval = security_evaluation(ts[:N_SAMPLES, :], dnn, dnn, tr, eps)
+    sec_eval = security_evaluation(ts[:N_SAMPLES, :], clf_rej, dnn, tr, eps)
 
     # Save to disk
-    sec_eval.save('dnn_seval')
+    sec_eval.save('clf_rej_bb_seval_v2')

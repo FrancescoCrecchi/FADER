@@ -1,43 +1,44 @@
-from secml.ml import CNormalizerDNN, CNormalizerMinMax, CClassifierSVM, CKernelRBF
+from secml.ml.features import CNormalizerDNN, CNormalizerMinMax
+from secml.ml.classifiers import CClassifierSVM
+from secml.ml.kernels import CKernelRBF
 from secml.ml.classifiers.multiclass import CClassifierMulticlassOVA
 from secml.ml.classifiers.reject import CClassifierRejectThreshold
 from secml.array import CArray
 
-from mnist import get_datasets, mnist
+from mnist.cnn_mnist import cnn_mnist_model
+from mnist.fit_dnn import get_datasets
 
-
+N_TRAIN, N_TEST = 10000, 1000
 if __name__ == '__main__':
     random_state = 999
 
     _, vl, ts = get_datasets(random_state)
 
     # Load classifier
-    dnn = mnist()
-    dnn.load_model('mnist.pkl')
+    dnn = cnn_mnist_model()
+    dnn.load_model('cnn_mnist.pkl')
 
     # Check test performance
     y_pred = dnn.predict(ts.X, return_decision_function=False)
 
     from secml.ml.peval.metrics import CMetric
-
     acc_torch = CMetric.create('accuracy').performance_score(ts.Y, y_pred)
     print("Model Accuracy: {}".format(acc_torch))
 
-    # Create detector
-    feat_extr = CNormalizerDNN(dnn, out_layer='fc2')
+    # Create layer_classifier
+    feat_extr = CNormalizerDNN(dnn, out_layer='features:relu4')
     nmz = CNormalizerMinMax(preprocess=feat_extr)
-    clf = CClassifierMulticlassOVA(CClassifierSVM, kernel=CKernelRBF())
-    clf_rej = CClassifierRejectThreshold(clf, 0., preprocess=nmz)
+    clf = CClassifierMulticlassOVA(CClassifierSVM, kernel=CKernelRBF(), preprocess=nmz)
 
     # Select 10K training data and 1K test data (sampling)
-    tr_idxs = CArray.randsample(vl.X.shape[0], shape=10000, random_state=random_state)
+    tr_idxs = CArray.randsample(vl.X.shape[0], shape=N_TRAIN, random_state=random_state)
     tr_sample = vl[tr_idxs, :]
-    ts_idxs = CArray.randsample(ts.X.shape[0], shape=1000, random_state=random_state)
+    ts_idxs = CArray.randsample(ts.X.shape[0], shape=N_TEST, random_state=random_state)
     ts_sample = ts[ts_idxs, :]
 
     # Xval
-    xval_params = {'C': [1e-3, 1, 1000],
-                   'kernel.gamma': [0.01, 1, 10]}
+    xval_params = {'C': [1e-1, 1, 10, 100],
+                   'kernel.gamma': [0.1, 1, 10, 100]}
 
     # Let's create a 3-Fold data splitter
     from secml.data.splitter import CDataSplitterKFold
@@ -57,6 +58,13 @@ if __name__ == '__main__':
     print("The best training parameters are: ",
           [(k, best_params[k]) for k in sorted(best_params)])
 
-    # We can now fit the classifier
+    # We can now create a classifier with reject
+    clf.preprocess = None   # TODO: "preprocess should be passed to outer classifier..."
+    clf_rej = CClassifierRejectThreshold(clf, 0., preprocess=nmz)
+    # We can now fit the clf_rej
     clf_rej.fit(tr_sample.X, tr_sample.Y)
-    clf_rej.save('clf_rej.pkl')
+    # Set threshold (FPR: 10%)
+    # TODO: "..and set the rejection threshold for (D)NR to reject 10% of the samples when no attack is performed
+    clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
+    # Dump to disk
+    clf_rej.save('clf_rej')
