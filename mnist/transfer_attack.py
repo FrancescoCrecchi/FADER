@@ -7,30 +7,10 @@ from mnist.cnn_mnist import cnn_mnist_model
 from mnist.fit_dnn import get_datasets
 
 
-def security_evaluation(dset, clf, surr, surr_dset, evals):
-    # Defining attack
-    noise_type = 'l2'  # Type of perturbation 'l1' or 'l2'
-    dmax = 3.0  # Maximum perturbation
-    lb, ub = 0., 1.  # Bounds of the attack space. Can be set to `None` for unbounded
-    y_target = None  # None if `error-generic` or a class label for `error-specific`
-
-    # Should be chosen depending on the optimization problem
-    solver_params = {
-        'eta': 1e-2,
-        'max_iter': 50,
-        'eps': 1e-4
-    }
-    pgd_attack = CAttackEvasionPGD(classifier=clf,
-                                   surrogate_classifier=surr,
-                                   surrogate_data=surr_dset,
-                                   distance=noise_type,
-                                   lb=lb, ub=ub,
-                                   dmax=dmax,
-                                   solver_params=solver_params,
-                                   y_target=y_target)
+def security_evaluation(attack, dset, evals):
 
     # Security evaluation
-    seval = CSecEval(attack=pgd_attack, param_name='dmax', param_values=evals, save_adv_ds=True)
+    seval = CSecEval(attack=attack, param_name='dmax', param_values=evals, save_adv_ds=True)
     seval.verbose = 1  # DEBUG
 
     # Run the security evaluation using the test set
@@ -55,9 +35,14 @@ if __name__ == '__main__':
     # Set threshold
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts)
 
+    # Load attack and set params
+    pgd_attack = CAttackEvasionPGD.load('dnn_attack.gz')
+    pgd_attack._classifier = clf_rej
+    pgd_attack.surrogate_classifier = dnn
+
     # "Used to perturb all test samples"
     eps = CArray.arange(start=0, step=0.5, stop=5.1)
-    sec_eval = security_evaluation(ts[:N_SAMPLES, :], clf_rej, dnn, tr, eps)
+    sec_eval = security_evaluation(pgd_attack, ts[:N_SAMPLES, :], eps)
 
     # Save to disk
     sec_eval.save('clf_rej_bb_seval_v2')

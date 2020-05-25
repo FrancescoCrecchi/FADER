@@ -1,5 +1,5 @@
 from secml.adv.seceval import CSecEval
-from secml.ml.classifiers.reject import CClassifierRejectThreshold
+from secml.ml.classifiers.reject import CClassifierRejectThreshold, CClassifierDNR
 
 from mnist.fit_dnn import get_datasets
 
@@ -29,13 +29,16 @@ if __name__ == '__main__':
     random_state = 999
 
     # Load clf
-    clf_rej = CClassifierRejectThreshold.load('clf_rej.gz')
+    # clf_rej = CClassifierRejectThreshold.load('clf_rej.gz')
+    dnr = CClassifierDNR.load('dnr.gz')
 
     # Load adversarial samples
     dnn_seval = CSecEval.load("dnn_seval.gz")
 
     # Transferability test
-    clf_rej_bb_seval = transfer_attack(clf_rej, dnn_seval)
+    # clf_rej_bb_seval = transfer_attack(clf_rej, dnn_seval)
+    dnr_bb_seval = transfer_attack(dnr, dnn_seval)
 
     # Dump to disk
-    clf_rej_bb_seval.save("clf_rej_bb_seval")
+    # clf_rej_bb_seval.save("clf_rej_bb_seval")
+    dnr_bb_seval.save("dnr_bb_seval")

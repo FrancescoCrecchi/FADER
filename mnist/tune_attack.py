@@ -20,8 +20,8 @@ acc_torch = CMetric.create('accuracy').performance_score(ts.Y, y_pred)
 print("Model Accuracy: {}".format(acc_torch))
 
 # Tune attack params
-one_eight = (ts.Y == 1).logical_or(ts.Y == 8)
-dbg = ts[one_eight, :]
+one_ds = ts.Y == 1
+dbg = ts[one_ds, :]
 x0, y0 = dbg[0, :].X, dbg[0, :].Y
 
 # Defining attack
@@ -46,6 +46,7 @@ pgd_attack = CAttackEvasionPGD(classifier=dnn,
                                solver_params=solver_params,
                                y_target=y_target)
 
+pgd_attack.verbose = 2
 eva_y_pred, _, eva_adv_ds, _ = pgd_attack.run(x0, y0, double_init=False)
 # assert eva_y_pred.item == 8, "Attack not working"
 
@@ -77,6 +78,7 @@ fig.sp.ylabel('Confidence')
 fig.sp.legend()
 fig.savefig("attack_confidence.png")
 
-# TODO: Dump attack to disk
-
-
+# Dump attack to disk
+pgd_attack.verbose = 0
+pgd_attack.y_target = None
+pgd_attack.save('dnn_attack')

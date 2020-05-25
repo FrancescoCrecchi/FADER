@@ -29,7 +29,6 @@ if __name__ == '__main__':
         CClassifierSVM, kernel=CKernelRBF(gamma=1), C=1)
     layer_clf = CClassifierMulticlassOVA(
         CClassifierSVM, kernel=CKernelRBF(gamma=1), C=1)
-
     dnr = CClassifierDNR(combiner, layer_clf, dnn, layers, -1000)
 
     # Setting layer classifiers parameters (avoid xval)

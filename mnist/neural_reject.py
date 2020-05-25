@@ -27,8 +27,7 @@ if __name__ == '__main__':
 
     # Create layer_classifier
     feat_extr = CNormalizerDNN(dnn, out_layer='features:relu4')
-    nmz = CNormalizerMinMax(preprocess=feat_extr)
-    clf = CClassifierMulticlassOVA(CClassifierSVM, kernel=CKernelRBF(), preprocess=nmz)
+    clf = CClassifierMulticlassOVA(CClassifierSVM, kernel=CKernelRBF(), preprocess=feat_extr)
 
     # Select 10K training data and 1K test data (sampling)
     tr_idxs = CArray.randsample(vl.X.shape[0], shape=N_TRAIN, random_state=random_state)
@@ -60,7 +59,7 @@ if __name__ == '__main__':
 
     # We can now create a classifier with reject
     clf.preprocess = None   # TODO: "preprocess should be passed to outer classifier..."
-    clf_rej = CClassifierRejectThreshold(clf, 0., preprocess=nmz)
+    clf_rej = CClassifierRejectThreshold(clf, 0., preprocess=feat_extr)
     # We can now fit the clf_rej
     clf_rej.fit(tr_sample.X, tr_sample.Y)
     # Set threshold (FPR: 10%)
