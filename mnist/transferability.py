@@ -1,7 +1,6 @@
 from secml.adv.seceval import CSecEval
-from secml.ml.classifiers.reject import CClassifierRejectThreshold, CClassifierDNR
+from secml.ml.classifiers.reject import CClassifierRejectThreshold
 
-from mnist.fit_dnn import get_datasets
 
 def transfer_attack(clf, seval):
     '''
@@ -29,16 +28,19 @@ if __name__ == '__main__':
     random_state = 999
 
     # Load clf
-    # clf_rej = CClassifierRejectThreshold.load('clf_rej.gz')
-    dnr = CClassifierDNR.load('dnr.gz')
+    clf_rej = CClassifierRejectThreshold.load('clf_rej.gz')
+    # tsne_rej = CClassifierRejectThreshold.load('tsne_rej.gz')
+    # dnr = CClassifierDNR.load('dnr.gz')
 
     # Load adversarial samples
     dnn_seval = CSecEval.load("dnn_seval.gz")
 
     # Transferability test
-    # clf_rej_bb_seval = transfer_attack(clf_rej, dnn_seval)
-    dnr_bb_seval = transfer_attack(dnr, dnn_seval)
+    clf_rej_bb_seval = transfer_attack(clf_rej, dnn_seval)
+    # tsne_rej_bb_seval = transfer_attack(tsne_rej, dnn_seval)
+    # dnr_bb_seval = transfer_attack(dnr, dnn_seval)
 
     # Dump to disk
-    # clf_rej_bb_seval.save("clf_rej_bb_seval")
-    dnr_bb_seval.save("dnr_bb_seval")
+    clf_rej_bb_seval.save("clf_rej_bb_seval")
+    # tsne_rej_bb_seval.save("tsne_rej_bb_seval")
+    # dnr_bb_seval.save("dnr_bb_seval")

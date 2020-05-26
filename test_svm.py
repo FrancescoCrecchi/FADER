@@ -1,11 +1,10 @@
 from secml.array import CArray
+from secml.data.splitter import CDataSplitterKFold
+from secml.ml import CClassifierSVM
 from secml.ml.classifiers.multiclass import CClassifierMulticlassOVA
-from secml.ml.features import CNormalizerDNN, CNormalizerMinMax
+from secml.ml.features import CNormalizerDNN
 from secml.ml.kernels import CKernelRBF
 from secml.ml.peval.metrics import CMetricAccuracy
-
-from components.c_classifier_kde import CClassifierKDE
-from components.c_reducer_ptsne import CReducerPTSNE
 
 from mnist.cnn_mnist import cnn_mnist_model
 from mnist.fit_dnn import get_datasets
@@ -26,7 +25,7 @@ if __name__ == '__main__':
 
     # Load classifier
     dnn = cnn_mnist_model()
-    dnn.load_model('../mnist/cnn_mnist.pkl')
+    dnn.load_model('./mnist/cnn_mnist.pkl')
 
     # Check test performance
     y_pred = dnn.predict(ts.X, return_decision_function=False)
@@ -45,39 +44,28 @@ if __name__ == '__main__':
     # Wrap it with `CNormalizerDNN`
     dnn_feats = CNormalizerDNN(dnn, out_layer='features:relu4')
 
-    # Compose classifier
-    feat_extr = CReducerPTSNE(n_components=2,
-                              n_hiddens=64,
-                              epochs=100,
-                              batch_size=128,
-                              preprocess=dnn_feats,
-                              random_state=random_state)
-    nmz = CNormalizerMinMax(preprocess=feat_extr)
-    clf = CClassifierMulticlassOVA(classifier=CClassifierKDE,
-                                   kernel=CKernelRBF(gamma=100),
-                                   preprocess=nmz)
+    # Classifier
+    clf = CClassifierMulticlassOVA(classifier=CClassifierSVM,
+                                   kernel=CKernelRBF(),
+                                   preprocess=dnn_feats)
 
     # DEBUG
-    feat_extr.verbose = 1
+    clf.verbose = 1
+    clf.n_jobs = 4
 
-    # # Xval
-    # xval_splitter = CDataSplitterKFold(num_folds=3, random_state=random_state)
-    #
-    # def compute_hiddens(n_hiddens, n_layers):
-    #     return sum([[[l] * k for l in n_hiddens] for k in range(1, n_layers+1)], [])
-    #
-    # params_grid = {
-    #     'preprocess.preprocess.n_hiddens': [128, 64], #compute_hiddens([8, 64, 128], 1),
-    #     # 'preprocess.preprocess.n_components': [2, 4]
-    #     'kernel.gamma': [1, 10, 100]
-    # }
-    # clf.verbose = 1
-    # best_params = clf.estimate_parameters(clf_tr,
-    #                                       parameters=params_grid,
-    #                                       splitter=xval_splitter,
-    #                                       metric='accuracy')
-    # print("The best training parameters are: ",
-    #       [(k, best_params[k]) for k in sorted(best_params)])
+    # Xval
+    xval_splitter = CDataSplitterKFold(num_folds=3, random_state=random_state)
+    params_grid = {
+        'C': [0.001, 10, 100],
+        'kernel.gamma': [0.01, 10, 100]
+    }
+    clf.verbose = 1
+    best_params = clf.estimate_parameters(tr_sample,
+                                          parameters=params_grid,
+                                          splitter=xval_splitter,
+                                          metric='accuracy')
+    print("The best training parameters are: ",
+          [(k, best_params[k]) for k in sorted(best_params)])
 
     # Fit
     clf.fit(tr_sample.X, tr_sample.Y)
@@ -106,18 +94,18 @@ if __name__ == '__main__':
     # # Restore preprocessing
     # clf.preprocess = nmz
 
-    # --------- Backward ---------
-
-    # Test gradient
-    x = tr_sample.X[0, :]
-    w = clf.forward(x)
-    grad = clf.gradient(x, w=w)
-    print(grad.shape)
-
-    # Numerical gradient check
-    from secml.ml.classifiers.tests.c_classifier_testcases import CClassifierTestCases
-
-    CClassifierTestCases.setUpClass()
-    CClassifierTestCases()._test_gradient_numerical(clf, x)
+    # # --------- Backward ---------
+    #
+    # # Test gradient
+    # x = tr_sample.X[0, :]
+    # w = clf.forward(x)
+    # grad = clf.gradient(x, w=w)
+    # print(grad.shape)
+    #
+    # # Numerical gradient check
+    # from secml.ml.classifiers.tests.c_classifier_testcases import CClassifierTestCases
+    #
+    # CClassifierTestCases.setUpClass()
+    # CClassifierTestCases()._test_gradient_numerical(clf, x)
 
     print("done?")

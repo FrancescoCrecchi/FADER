@@ -5,12 +5,14 @@ from secml.ml.classifiers.reject import CClassifierRejectThreshold, CClassifierD
 from secml.ml.peval.metrics import CMetricAccuracyReject, CMetricAccuracy
 
 # Load sec_eval
-seval = CSecEval.load('clf_rej_bb_seval_v2.gz')
+# seval = CSecEval.load('clf_rej_bb_seval.gz')
+seval = CSecEval.load('tsne_rej_bb_seval.gz')
 # seval = CSecEval.load('dnr_bb_seval.gz')
 
 # Load detector
 # detector = CClassifierRejectThreshold.load('clf_rej.gz')
-detector = CClassifierDNR.load('dnr.gz')
+detector = CClassifierRejectThreshold.load('tsne_rej.gz')
+# detector = CClassifierDNR.load('dnr.gz')
 
 # Compute performance at eps=0 (i.e. CMetricAccuracy)
 pred = detector.predict(seval.sec_eval_data.adv_ds[0].X)
@@ -33,7 +35,7 @@ fig = CFigure(height=8, width=10)
 sp1 = fig.subplot(2,1,1)
 # This is done here to make 'markevery' work correctly
 sp1.xticks(seval.sec_eval_data.param_values)
-sp1.plot(seval.sec_eval_data.param_values, perf, label='clf_rej',
+sp1.plot(seval.sec_eval_data.param_values, perf, label='tsne_rej',
           linestyle='-', color=None, marker='o',
           markevery=sp1.get_xticks_idx(seval.sec_eval_data.param_values))
 sp1.xlabel(seval.sec_eval_data.param_name)
@@ -50,5 +52,6 @@ sp2.ylabel("% Reject")
 sp2.apply_params_sec_eval()
 
 # Dump to file
-fig.savefig('clf_rej_bb_seval_v2')
+# fig.savefig('clf_rej_bb_seval')
+fig.savefig('tsne_rej_bb_seval')
 # fig.savefig('dnr_bb_seval')
