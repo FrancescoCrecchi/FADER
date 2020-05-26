@@ -5,17 +5,12 @@ from secml.ml.classifiers.reject import CClassifierRejectThreshold, CClassifierD
 from secml.ml.peval.metrics import CMetricAccuracyReject, CMetricAccuracy
 
 # Load sec_eval
-# seval = CSecEval.load('clf_rej_bb_seval.gz')
-seval = CSecEval.load('tsne_rej_bb_seval.gz')
+seval = CSecEval.load('clf_rej_bb_seval.gz')
+# seval = CSecEval.load('tsne_rej_bb_seval.gz')
 # seval = CSecEval.load('dnr_bb_seval.gz')
 
-# Load detector
-# detector = CClassifierRejectThreshold.load('clf_rej.gz')
-detector = CClassifierRejectThreshold.load('tsne_rej.gz')
-# detector = CClassifierDNR.load('dnr.gz')
-
 # Compute performance at eps=0 (i.e. CMetricAccuracy)
-pred = detector.predict(seval.sec_eval_data.adv_ds[0].X)
+pred = seval.sec_eval_data.Y_pred[0]
 acc_at_zero = CMetricAccuracy().performance_score(seval.sec_eval_data.Y, pred)
 
 # Compute performance for eps > 0 (i.e. CMetricAccuracyReject)
@@ -23,8 +18,8 @@ perf = CArray.zeros(shape=(seval.sec_eval_data.param_values.size,))
 perf[0] = acc_at_zero
 metric = CMetricAccuracyReject()
 for k in range(1, seval.sec_eval_data.param_values.size):
-    pred, scores = detector.predict(seval.sec_eval_data.adv_ds[k].X, return_decision_function=True)
-    perf[k] = metric.performance_score(y_true=seval.sec_eval_data.Y, y_pred=pred, score=scores)
+    pred = seval.sec_eval_data.Y_pred[k]
+    perf[k] = metric.performance_score(y_true=seval.sec_eval_data.Y, y_pred=pred)
 # TODO: AVERAGE ACROSS MULTIPLE RUNS?
 
 # Plot sec_eval with reject percentage
@@ -35,7 +30,7 @@ fig = CFigure(height=8, width=10)
 sp1 = fig.subplot(2,1,1)
 # This is done here to make 'markevery' work correctly
 sp1.xticks(seval.sec_eval_data.param_values)
-sp1.plot(seval.sec_eval_data.param_values, perf, label='tsne_rej',
+sp1.plot(seval.sec_eval_data.param_values, perf, label='nr',
           linestyle='-', color=None, marker='o',
           markevery=sp1.get_xticks_idx(seval.sec_eval_data.param_values))
 sp1.xlabel(seval.sec_eval_data.param_name)
@@ -52,6 +47,6 @@ sp2.ylabel("% Reject")
 sp2.apply_params_sec_eval()
 
 # Dump to file
-# fig.savefig('clf_rej_bb_seval')
-fig.savefig('tsne_rej_bb_seval')
+fig.savefig('clf_rej_bb_seval')
+# fig.savefig('tsne_rej_bb_seval')
 # fig.savefig('dnr_bb_seval')
