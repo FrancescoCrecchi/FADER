@@ -20,9 +20,8 @@ acc_torch = CMetric.create('accuracy').performance_score(ts.Y, y_pred)
 print("Model Accuracy: {}".format(acc_torch))
 
 # Tune attack params
-one_ds = ts.Y == 1
-dbg = ts[one_ds, :]
-x0, y0 = dbg[0, :].X, dbg[0, :].Y
+one_ds = ts[ts.Y == 1, :]
+x0, y0 = one_ds[0, :].X, one_ds[0, :].Y
 
 # Defining attack
 noise_type = 'l2'  # Type of perturbation 'l1' or 'l2'
@@ -31,15 +30,15 @@ lb, ub = 0., 1.  # Bounds of the attack space. Can be set to `None` for unbounde
 y_target = 8  # None if `error-generic` or a class label for `error-specific`
 
 # Should be chosen depending on the optimization problem
-# solver_params = {
-#     'eta': 1e-2,
-#     'max_iter': 50,
-#     'eps': 1e-4
-# }
-solver_params = None
+solver_params = {
+    'eta': 1e-2,
+    'max_iter': 1000,
+    'eps': 1e-12
+}
+# solver_params = None
 pgd_attack = CAttackEvasionPGDExp(classifier=clf,
                                   surrogate_classifier=clf,
-                                  surrogate_data=tr,
+                                  surrogate_data=one_ds,
                                   distance=noise_type,
                                   lb=lb, ub=ub,
                                   dmax=dmax,
@@ -47,12 +46,12 @@ pgd_attack = CAttackEvasionPGDExp(classifier=clf,
                                   y_target=y_target)
 pgd_attack.verbose = 2  # DEBUG
 
-eva_y_pred, _, eva_adv_ds, _ = pgd_attack.run(x0, y0, double_init=False)
+eva_y_pred, _, eva_adv_ds, _ = pgd_attack.run(x0, y0, double_init=True)
 # assert eva_y_pred.item == 8, "Attack not working"
 
 # Plot attack loss function
 fig = CFigure(height=5, width=10)
-fig.sp.plot(pgd_attack._f_seq, marker='o', label='PGD')
+fig.sp.plot(pgd_attack._f_seq, marker='o', label='PGDExp')
 fig.sp.grid()
 fig.sp.xticks(range(pgd_attack._f_seq.shape[0]))
 fig.sp.xlabel('Iteration')

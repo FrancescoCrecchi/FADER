@@ -31,15 +31,10 @@ if __name__ == '__main__':
     # Create layer_classifier
     feat_extr = CNormalizerDNN(dnn, out_layer='features:relu4')
     # Compose classifier
-    tsne = CReducerPTSNE(n_components=2,
-                         n_hiddens=64,
-                         epochs=100,
-                         batch_size=128,
-                         preprocess=feat_extr,
-                         random_state=random_state)
+    tsne = CReducerPTSNE(epochs=250, batch_size=128, random_state=random_state, preprocess=feat_extr)
     nmz = CNormalizerMinMax(preprocess=tsne)
     clf = CClassifierMulticlassOVA(classifier=CClassifierKDE,
-                                   kernel=CKernelRBF(gamma=100),
+                                   kernel=CKernelRBF(gamma=10),
                                    preprocess=nmz)
 
     # Select 10K training data and 1K test data (sampling)
@@ -51,28 +46,33 @@ if __name__ == '__main__':
     # DEBUG
     tsne.verbose = 1
 
-    # # Xval
-    # xval_params = {'C': [1e-1, 1, 10, 100],
-    #                'kernel.gamma': [0.1, 1, 10, 100]}
-    #
-    # # Let's create a 3-Fold data splitter
-    # from secml.data.splitter import CDataSplitterKFold
-    #
-    # xval_splitter = CDataSplitterKFold(num_folds=3, random_state=random_state)
-    #
-    # # Select and set the best training parameters for the classifier
-    # clf.verbose = 1
-    # print("Estimating the best training parameters...")
-    # best_params = clf.estimate_parameters(
-    #     dataset=tr_sample,
-    #     parameters=xval_params,
-    #     splitter=xval_splitter,
-    #     metric='accuracy',
-    #     perf_evaluator='xval'
-    # )
-    #
-    # print("The best training parameters are: ",
-    #       [(k, best_params[k]) for k in sorted(best_params)])
+    # Xval
+    def compute_hiddens(n_hiddens, n_layers):
+        return sum([[[l] * k for l in n_hiddens] for k in range(1, n_layers+1)], [])
+
+    xval_params = {
+        'preprocess.preprocess.n_hiddens': compute_hiddens([64, 128, 256], 2),
+        'kernel.gamma': [10, 100] # 0.1, 1
+    }
+
+    # Let's create a 3-Fold data splitter
+    from secml.data.splitter import CDataSplitterKFold
+
+    xval_splitter = CDataSplitterKFold(num_folds=3, random_state=random_state)
+
+    # Select and set the best training parameters for the classifier
+    clf.verbose = 1
+    print("Estimating the best training parameters...")
+    best_params = clf.estimate_parameters(
+        dataset=tr_sample,
+        parameters=xval_params,
+        splitter=xval_splitter,
+        metric='accuracy',
+        perf_evaluator='xval'
+    )
+
+    print("The best training parameters are: ",
+          [(k, best_params[k]) for k in sorted(best_params)])
 
     # We can now create a classifier with reject
     clf.preprocess = None  # TODO: "preprocess should be passed to outer classifier..."

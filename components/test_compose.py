@@ -46,16 +46,9 @@ if __name__ == '__main__':
     dnn_feats = CNormalizerDNN(dnn, out_layer='features:relu4')
 
     # Compose classifier
-    feat_extr = CReducerPTSNE(n_components=2,
-                              n_hiddens=64,
-                              epochs=100,
-                              batch_size=128,
-                              preprocess=dnn_feats,
-                              random_state=random_state)
+    feat_extr = CReducerPTSNE(preprocess=dnn_feats, random_state=random_state)
     nmz = CNormalizerMinMax(preprocess=feat_extr)
-    clf = CClassifierMulticlassOVA(classifier=CClassifierKDE,
-                                   kernel=CKernelRBF(gamma=100),
-                                   preprocess=nmz)
+    clf = CClassifierMulticlassOVA(classifier=CClassifierKDE, kernel=CKernelRBF(), preprocess=nmz)
 
     # DEBUG
     feat_extr.verbose = 1
@@ -78,6 +71,15 @@ if __name__ == '__main__':
     #                                       metric='accuracy')
     # print("The best training parameters are: ",
     #       [(k, best_params[k]) for k in sorted(best_params)])
+
+    # HACK: Setting "best params" by hand!
+    clf.set_params({
+        'preprocess.preprocess.n_hiddens': 128,
+        'kernel.gamma': 100
+    })
+
+    # DEBUG
+    clf.n_jobs = 10
 
     # Fit
     clf.fit(tr_sample.X, tr_sample.Y)
