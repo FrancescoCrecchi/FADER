@@ -4,10 +4,10 @@ from secml.figure import CFigure
 from secml.ml.classifiers.reject import CClassifierRejectThreshold, CClassifierDNR
 from secml.ml.peval.metrics import CMetricAccuracyReject, CMetricAccuracy
 
+CLF = 'tnr'
+
 # Load sec_eval
-seval = CSecEval.load('clf_rej_bb_seval.gz')
-# seval = CSecEval.load('tsne_rej_bb_seval.gz')
-# seval = CSecEval.load('dnr_bb_seval.gz')
+seval = CSecEval.load(CLF+'_bb_seval.gz')
 
 # Compute performance at eps=0 (i.e. CMetricAccuracy)
 pred = seval.sec_eval_data.Y_pred[0]
@@ -27,10 +27,10 @@ rej_percentage = lambda seval: [(p == -1).sum()/p.shape[0] for p in seval.sec_ev
 
 fig = CFigure(height=8, width=10)
 # Sec eval plot code
-sp1 = fig.subplot(2,1,1)
+sp1 = fig.subplot(2, 1, 1)
 # This is done here to make 'markevery' work correctly
 sp1.xticks(seval.sec_eval_data.param_values)
-sp1.plot(seval.sec_eval_data.param_values, perf, label='nr',
+sp1.plot(seval.sec_eval_data.param_values, perf, label=CLF,
           linestyle='-', color=None, marker='o',
           markevery=sp1.get_xticks_idx(seval.sec_eval_data.param_values))
 sp1.xlabel(seval.sec_eval_data.param_name)
@@ -47,6 +47,4 @@ sp2.ylabel("% Reject")
 sp2.apply_params_sec_eval()
 
 # Dump to file
-fig.savefig('clf_rej_bb_seval')
-# fig.savefig('tsne_rej_bb_seval')
-# fig.savefig('dnr_bb_seval')
+fig.savefig(CLF+'_bb_seval')

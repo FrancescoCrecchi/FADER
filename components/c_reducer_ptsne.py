@@ -39,7 +39,7 @@ class CReducerPTSNE(CReducer):
             x_feats = x
 
         x_embds = CArray(self._tsne.fit_transform(x_feats.tondarray()))
-        x_embds.save('X_tsne', overwrite=True)  # REMOVE THIS!
+        # x_embds.save('X_tsne', overwrite=True)  # REMOVE THIS!
 
         # Fit mlp
         nn_in_dim = x_feats.shape[1]    # TODO: CHECK THIS! (High dimensional features?)
@@ -124,10 +124,10 @@ if __name__ == '__main__':
     fig.sp.grid()
     fig.savefig('c_reducer_tnse_mnist.png')
 
-    # DEBUG: plot original samples
-    X_tsne =  CArray.load('X_tsne')
-    fig = CFigure(10, 12)
-    fig.sp.plot_ds(CDataset(X_tsne, tr_sample.Y))
-    fig.savefig('c_reducer_tnse_mnist_orig.png')
+    # # DEBUG: plot original samples
+    # X_tsne =  CArray.load('X_tsne')
+    # fig = CFigure(10, 12)
+    # fig.sp.plot_ds(CDataset(X_tsne, tr_sample.Y))
+    # fig.savefig('c_reducer_tnse_mnist_orig.png')
 
     print("done?")

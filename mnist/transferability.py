@@ -12,35 +12,31 @@ def transfer_attack(clf, seval):
 
     res = seval.copy()
 
-    # # Remove unnecessary params
+    # TODO: Remove unnecessary params
     # res.sec_eval_data.fobj = None
 
     # Main loop
     for i, ds in enumerate(res.sec_eval_data.adv_ds):
         pred, scores = clf.predict(ds.X, return_decision_function=True)
         res.sec_eval_data.scores[i] = scores
+        # TODO: CHECK SCORE FOR NATURAL CLASSES
         res.sec_eval_data.Y_pred[i] = pred
 
     return res
 
 
+CLF = 'tnr'
 if __name__ == '__main__':
     random_state = 999
 
     # Load clf
-    # clf_rej = CClassifierRejectThreshold.load('clf_rej.gz')
-    tsne_rej = CClassifierRejectThreshold.load('tsne_rej.gz')
-    # dnr = CClassifierDNR.load('dnr.gz')
+    clf = CClassifierDNR.load(CLF+'.gz')
 
     # Load adversarial samples
     dnn_seval = CSecEval.load("dnn_seval.gz")
 
     # Transferability test
-    # clf_rej_bb_seval = transfer_attack(clf_rej, dnn_seval)
-    tsne_rej_bb_seval = transfer_attack(tsne_rej, dnn_seval)
-    # dnr_bb_seval = transfer_attack(dnr, dnn_seval)
+    transfer_seval = transfer_attack(clf, dnn_seval)
 
     # Dump to disk
-    # clf_rej_bb_seval.save("clf_rej_bb_seval")
-    tsne_rej_bb_seval.save("tsne_rej_bb_seval")
-    # dnr_bb_seval.save("dnr_bb_seval")
+    transfer_seval.save(CLF+"_bb_seval")
