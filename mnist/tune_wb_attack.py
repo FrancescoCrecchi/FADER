@@ -3,6 +3,8 @@ from secml.figure import CFigure
 from secml.ml.classifiers.reject import CClassifierDNR, CClassifierRejectThreshold
 
 from mnist.fit_dnn import get_datasets
+from mnist.wb_dnr_surrogate import CClassifierDNRSurrogate
+
 
 random_state = 999
 tr, _, ts = get_datasets(random_state)
@@ -11,29 +13,31 @@ tr, _, ts = get_datasets(random_state)
 # clf = CClassifierRejectThreshold.load('clf_rej.gz')
 clf = CClassifierDNR.load('dnr.gz')
 
+# Wrap it in a surrogate
+clf = CClassifierDNRSurrogate(clf)
+
 # Check test performance
 y_pred = clf.predict(ts.X, return_decision_function=False)
 
 from secml.ml.peval.metrics import CMetric
-
 acc_torch = CMetric.create('accuracy').performance_score(ts.Y, y_pred)
 print("Model Accuracy: {}".format(acc_torch))
 
 # Tune attack params
 one_ds = ts[ts.Y == 1, :]
-x0, y0 = one_ds[0, :].X, one_ds[0, :].Y
+x0, y0 = one_ds[22, :].X, one_ds[22, :].Y
 
 # Defining attack
 noise_type = 'l2'  # Type of perturbation 'l1' or 'l2'
-dmax = 3.0  # Maximum perturbation
+dmax = 5.0  # Maximum perturbation
 lb, ub = 0., 1.  # Bounds of the attack space. Can be set to `None` for unbounded
 y_target = 8  # None if `error-generic` or a class label for `error-specific`
 
 # Should be chosen depending on the optimization problem
 solver_params = {
     'eta': 1e-2,
-    'max_iter': 1000,
-    'eps': 1e-12
+    'max_iter': 100,
+    'eps': 1e-8
 }
 # solver_params = None
 pgd_attack = CAttackEvasionPGDExp(classifier=clf,
@@ -46,7 +50,7 @@ pgd_attack = CAttackEvasionPGDExp(classifier=clf,
                                   y_target=y_target)
 pgd_attack.verbose = 2  # DEBUG
 
-eva_y_pred, _, eva_adv_ds, _ = pgd_attack.run(x0, y0, double_init=True)
+eva_y_pred, _, eva_adv_ds, _ = pgd_attack.run(x0, y0, double_init=False)
 # assert eva_y_pred.item == 8, "Attack not working"
 
 # Plot attack loss function
