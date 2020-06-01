@@ -3,22 +3,9 @@ from secml.adv.seceval import CSecEval
 from secml.array import CArray
 from secml.ml.classifiers.reject import CClassifierRejectThreshold
 
+from mnist.attack_dnn import security_evaluation
 from mnist.cnn_mnist import cnn_mnist_model
 from mnist.fit_dnn import get_datasets
-
-
-def security_evaluation(attack, dset, evals):
-
-    # Security evaluation
-    seval = CSecEval(attack=attack, param_name='dmax', param_values=evals, save_adv_ds=True)
-    seval.verbose = 1  # DEBUG
-
-    # Run the security evaluation using the test set
-    print("Running security evaluation...")
-    seval.run_sec_eval(dset, double_init=False)
-    print("Done!")
-
-    return seval
 
 
 N_SAMPLES = 1000       # TODO: restore full dataset
