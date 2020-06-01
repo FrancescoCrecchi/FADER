@@ -1,3 +1,4 @@
+from secml.array import CArray
 from secml.adv.attacks import CAttackEvasionPGDExp, CAttackEvasionPGD
 from secml.figure import CFigure
 from secml.ml.classifiers.reject import CClassifierDNR, CClassifierRejectThreshold
@@ -10,11 +11,12 @@ random_state = 999
 tr, _, ts = get_datasets(random_state)
 
 # Load classifier
-# clf = CClassifierRejectThreshold.load('clf_rej.gz')
-clf = CClassifierDNR.load('dnr.gz')
+clf = CClassifierRejectThreshold.load('clf_rej.gz')
 
-# Wrap it in a surrogate
-clf = CClassifierDNRSurrogate(clf)
+# # DNR
+# clf = CClassifierDNR.load('dnr.gz')
+# # Wrap it in a surrogate
+# clf = CClassifierDNRSurrogate(clf)
 
 # Check test performance
 y_pred = clf.predict(ts.X, return_decision_function=False)
@@ -25,11 +27,11 @@ print("Model Accuracy: {}".format(acc_torch))
 
 # Tune attack params
 one_ds = ts[ts.Y == 1, :]
-x0, y0 = one_ds[22, :].X, one_ds[22, :].Y
+x0, y0 = one_ds[0, :].X, one_ds[0, :].Y
 
 # Defining attack
 noise_type = 'l2'  # Type of perturbation 'l1' or 'l2'
-dmax = 5.0  # Maximum perturbation
+dmax = 3.0  # Maximum perturbation
 lb, ub = 0., 1.  # Bounds of the attack space. Can be set to `None` for unbounded
 y_target = 8  # None if `error-generic` or a class label for `error-specific`
 
@@ -64,16 +66,15 @@ fig.sp.legend()
 fig.savefig("wb_attack_loss.png")
 
 # Plot confidence during attack
-one_score, eight_score = [], []
+n_iter, n_classes = pgd_attack.x_seq.shape[0], clf.n_classes
+scores = CArray.zeros((n_iter, n_classes))
 
 for i in range(pgd_attack.x_seq.shape[0]):
-    s = clf.decision_function(pgd_attack.x_seq[i, :])
-    one_score.append(s[1].item())
-    eight_score.append(s[8].item())
+    scores[i, :] = clf.decision_function(pgd_attack.x_seq[i, :])
 
 fig = CFigure(height=5, width=10)
-fig.sp.plot(one_score, marker='o', label='1')
-fig.sp.plot(eight_score, marker='o', label='8')
+for i in range(n_classes):
+    fig.sp.plot(scores[:, i], marker='o', label=str(i))
 fig.sp.grid()
 fig.sp.xticks(range(pgd_attack.x_seq.shape[0]))
 fig.sp.xlabel('Iteration')
@@ -81,4 +82,7 @@ fig.sp.ylabel('Confidence')
 fig.sp.legend()
 fig.savefig("wb_attack_confidence.png")
 
-# TODO: Dump attack to disk
+# Dump attack to disk
+pgd_attack.verbose = 0
+pgd_attack.y_target = None
+pgd_attack.save('nr_wb_attack')
