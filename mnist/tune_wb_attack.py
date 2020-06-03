@@ -28,7 +28,7 @@ print("Model Accuracy: {}".format(acc_torch))
 
 # Tune attack params
 one_ds = ts[ts.Y == 1, :]
-x0, y0 = one_ds[0, :].X, one_ds[0, :].Y
+x0, y0 = one_ds[22, :].X, one_ds[22, :].Y
 
 # Defining attack
 noise_type = 'l2'  # Type of perturbation 'l1' or 'l2'
@@ -40,8 +40,9 @@ y_target = 8  # None if `error-generic` or a class label for `error-specific`
 solver_params = {
     'eta': 0.1,
     'eta_min': 0.1,
+    'eta_pgd': 0.1,
     'max_iter': 100,
-    'eps': 1e-10
+    'eps': 1e-10,
 }
 # solver_params = None
 pgd_attack = CAttackEvasionPGDExp(classifier=clf,
@@ -54,7 +55,7 @@ pgd_attack = CAttackEvasionPGDExp(classifier=clf,
                                   y_target=y_target)
 pgd_attack.verbose = 2  # DEBUG
 
-eva_y_pred, _, eva_adv_ds, _ = pgd_attack.run(x0, y0, double_init=False)
+eva_y_pred, _, eva_adv_ds, _ = pgd_attack.run(x0, y0, double_init=True)
 # assert eva_y_pred.item == 8, "Attack not working"
 
 # Plot attack loss function
@@ -75,7 +76,7 @@ for i in range(pgd_attack.x_seq.shape[0]):
     scores[i, :] = clf.decision_function(pgd_attack.x_seq[i, :])
 
 fig = CFigure(height=5, width=10)
-for i in range(n_classes):
+for i in range(-1, clf.n_classes-1):
     fig.sp.plot(scores[:, i], marker='o', label=str(i))
 fig.sp.grid()
 fig.sp.xticks(range(pgd_attack.x_seq.shape[0]))

@@ -102,5 +102,5 @@ if __name__ == '__main__':
     print("Model Accuracy: {}".format(acc_torch))
 
     # Dump to disk
-    tnr.save('dnr')
+    tnr.save('tnr')
 

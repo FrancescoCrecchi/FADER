@@ -31,15 +31,23 @@ if __name__ == '__main__':
         CClassifierSVM, kernel=CKernelRBF(gamma=1), C=1)
     dnr = CClassifierDNR(combiner, layer_clf, dnn, layers, -1000)
 
-    # Setting layer classifiers parameters (avoid xval)
+    '''
+    Setting classifiers parameters (A. Sotgiu)
+    MNIST		    C	    gamma
+    -----------------------------
+    combiner	    1e-1	1
+    features:relu2	10	    1e-3
+    features:relu3	10	    1e-2
+    features:relu4	1	    1e-2
+    '''
     dnr.set_params({
         'features:relu2.C': 10,
         'features:relu2.kernel.gamma': 1e-3,
-        'features:relu3.C': 1,
-        'features:relu3.kernel.gamma': 1e-3,
-        'features:relu4.C': 1e-1,
+        'features:relu3.C': 10,
+        'features:relu3.kernel.gamma': 1e-2,
+        'features:relu4.C': 1,
         'features:relu4.kernel.gamma': 1e-2,
-        'clf.C': 1e-4,
+        'clf.C': 1e-1,
         'clf.kernel.gamma': 1
     })
 
