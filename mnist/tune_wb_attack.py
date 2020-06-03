@@ -5,18 +5,19 @@ from secml.ml.classifiers.reject import CClassifierDNR, CClassifierRejectThresho
 
 from mnist.fit_dnn import get_datasets
 from mnist.wb_dnr_surrogate import CClassifierDNRSurrogate
-
+from mnist.wb_nr_surrogate import CClassifierRejectSurrogate
 
 random_state = 999
 tr, _, ts = get_datasets(random_state)
 
-# Load classifier
-clf = CClassifierRejectThreshold.load('clf_rej.gz')
+# Load classifier and wrap it
+# NR
+# clf = CClassifierRejectThreshold.load('clf_rej.gz')
+# clf = CClassifierRejectSurrogate(clf)
 
-# # DNR
-# clf = CClassifierDNR.load('dnr.gz')
-# # Wrap it in a surrogate
-# clf = CClassifierDNRSurrogate(clf)
+# DNR
+clf = CClassifierDNR.load('dnr.gz')
+clf = CClassifierDNRSurrogate(clf)
 
 # Check test performance
 y_pred = clf.predict(ts.X, return_decision_function=False)
@@ -31,15 +32,16 @@ x0, y0 = one_ds[0, :].X, one_ds[0, :].Y
 
 # Defining attack
 noise_type = 'l2'  # Type of perturbation 'l1' or 'l2'
-dmax = 3.0  # Maximum perturbation
+dmax = 5.0  # Maximum perturbation
 lb, ub = 0., 1.  # Bounds of the attack space. Can be set to `None` for unbounded
 y_target = 8  # None if `error-generic` or a class label for `error-specific`
 
 # Should be chosen depending on the optimization problem
 solver_params = {
-    'eta': 1e-2,
+    'eta': 0.1,
+    'eta_min': 0.1,
     'max_iter': 100,
-    'eps': 1e-8
+    'eps': 1e-10
 }
 # solver_params = None
 pgd_attack = CAttackEvasionPGDExp(classifier=clf,
