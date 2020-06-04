@@ -1,9 +1,10 @@
-from secml.ml.features import CNormalizerDNN, CNormalizerMinMax
+from secml.array import CArray
 from secml.ml.classifiers import CClassifierSVM
-from secml.ml.kernels import CKernelRBF
 from secml.ml.classifiers.multiclass import CClassifierMulticlassOVA
 from secml.ml.classifiers.reject import CClassifierRejectThreshold
-from secml.array import CArray
+from secml.ml.features import CNormalizerDNN
+from secml.ml.kernels import CKernelRBF
+from secml.ml.peval.metrics import CMetricAccuracy
 
 from mnist.cnn_mnist import cnn_mnist_model
 from mnist.fit_dnn import get_datasets
@@ -20,16 +21,13 @@ if __name__ == '__main__':
 
     # Check test performance
     y_pred = dnn.predict(ts.X, return_decision_function=False)
-
-    from secml.ml.peval.metrics import CMetric
-    acc_torch = CMetric.create('accuracy').performance_score(ts.Y, y_pred)
-    print("Model Accuracy: {}".format(acc_torch))
+    acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
+    print("Model Accuracy: {}".format(acc))
 
     # Create layer_classifier
     feat_extr = CNormalizerDNN(dnn, out_layer='features:relu4')
-    nmz = CNormalizerMinMax(preprocess=feat_extr)
-    clf = CClassifierMulticlassOVA(CClassifierSVM, kernel=CKernelRBF(), preprocess=nmz)
-    # clf.n_jobs = 10
+    clf = CClassifierMulticlassOVA(CClassifierSVM, kernel=CKernelRBF(), preprocess=feat_extr)
+    clf.n_jobs = 10
 
     # Select 10K training data and 1K test data (sampling)
     tr_idxs = CArray.randsample(vl.X.shape[0], shape=N_TRAIN, random_state=random_state)
@@ -59,19 +57,19 @@ if __name__ == '__main__':
     # print("The best training parameters are: ",
     #       [(k, best_params[k]) for k in sorted(best_params)])
 
-    # HACK: Setting "best params" by hand!
+    # HACK: Avoid xval (A. Sotgiu)
     clf.set_params({
-        'C': 0.1,
-        'kernel.gamma': 1.0
+        'C': 1,
+        'kernel.gamma': 1e-2
     })
 
     # We can now create a classifier with reject
     clf.preprocess = None   # TODO: "preprocess should be passed to outer classifier..."
-    clf_rej = CClassifierRejectThreshold(clf, 0., preprocess=nmz)
+    clf_rej = CClassifierRejectThreshold(clf, 0., preprocess=feat_extr)
     # We can now fit the clf_rej
     clf_rej.fit(tr_sample.X, tr_sample.Y)
     # Set threshold (FPR: 10%)
     # TODO: "..and set the rejection threshold for (D)NR to reject 10% of the samples when no attack is performed
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
     # Dump to disk
-    clf_rej.save('clf_rej')
+    clf_rej.save('nr')

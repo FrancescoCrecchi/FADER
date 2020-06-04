@@ -21,7 +21,7 @@ def security_evaluation(attack, dset, evals):
     return seval
 
 
-N_SAMPLES = 100     # TODO: restore full dataset
+N_SAMPLES = 1000
 if __name__ == '__main__':
     random_state = 999
     tr, _, ts = get_datasets(random_state)

@@ -2,6 +2,7 @@ from secml.array import CArray
 from secml.ml import CClassifierSVM, CKernelRBF
 from secml.ml.classifiers.multiclass import CClassifierMulticlassOVA
 from secml.ml.classifiers.reject import CClassifierDNR
+from secml.ml.peval.metrics import CMetricAccuracy
 
 from mnist.cnn_mnist import cnn_mnist_model
 from mnist.fit_dnn import get_datasets
@@ -18,10 +19,8 @@ if __name__ == '__main__':
 
     # Check test performance
     y_pred = dnn.predict(ts.X, return_decision_function=False)
-
-    from secml.ml.peval.metrics import CMetric
-    acc_torch = CMetric.create('accuracy').performance_score(ts.Y, y_pred)
-    print("Model Accuracy: {}".format(acc_torch))
+    acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
+    print("Model Accuracy: {}".format(acc))
 
     # Create DNR
     layers = ['features:relu4', 'features:relu3', 'features:relu2']

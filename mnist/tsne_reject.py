@@ -3,6 +3,7 @@ from secml.ml.classifiers.multiclass import CClassifierMulticlassOVA
 from secml.ml.classifiers.reject import CClassifierRejectThreshold
 from secml.ml.features import CNormalizerDNN, CNormalizerMinMax
 from secml.ml.kernels import CKernelRBF
+from secml.ml.peval.metrics import CMetricAccuracy
 
 from components.c_classifier_kde import CClassifierKDE
 from components.c_reducer_ptsne import CReducerPTSNE
@@ -22,10 +23,8 @@ if __name__ == '__main__':
 
     # Check test performance
     y_pred = dnn.predict(ts.X, return_decision_function=False)
-
-    from secml.ml.peval.metrics import CMetric
-    acc_torch = CMetric.create('accuracy').performance_score(ts.Y, y_pred)
-    print("Model Accuracy: {}".format(acc_torch))
+    acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
+    print("Model Accuracy: {}".format(acc))
 
     # Create layer_classifier
     feat_extr = CNormalizerDNN(dnn, out_layer='features:relu4')
@@ -40,22 +39,22 @@ if __name__ == '__main__':
     ts_idxs = CArray.randsample(ts.X.shape[0], shape=N_TEST, random_state=random_state)
     ts_sample = ts[ts_idxs, :]
 
-    # DEBUG
-    tsne.verbose = 1
-
     # Xval
     def compute_hiddens(n_hiddens, n_layers):
         return sum([[[l] * k for l in n_hiddens] for k in range(1, n_layers+1)], [])
 
     xval_params = {
         'preprocess.preprocess.n_hiddens': compute_hiddens([64, 128, 256], 2),
-        'kernel.gamma': [10, 100] # 0.1, 1
+        'kernel.gamma': [0.1, 1, 10, 100]
     }
 
     # Let's create a 3-Fold data splitter
     from secml.data.splitter import CDataSplitterKFold
 
     xval_splitter = CDataSplitterKFold(num_folds=3, random_state=random_state)
+
+    # Parallel?
+    clf.n_jobs = 16
 
     # Select and set the best training parameters for the classifier
     clf.verbose = 1
@@ -83,9 +82,10 @@ if __name__ == '__main__':
     # Check test performance
     y_pred = clf_rej.predict(ts.X, return_decision_function=False)
 
-    from secml.ml.peval.metrics import CMetric
-    acc_torch = CMetric.create('accuracy').performance_score(ts.Y, y_pred)
-    print("Model Accuracy: {}".format(acc_torch))
+    from secml.ml.peval.metrics import CMetric, CMetricAccuracy
+
+    acc = CMetric.create('accuracy').performance_score(ts.Y, y_pred)
+    print("Model Accuracy: {}".format(acc))
 
     # Dump to disk
     clf_rej.save('tsne_rej')
