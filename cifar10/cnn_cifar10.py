@@ -75,6 +75,7 @@ classifier:
     0 - 10
 """
 import torch
+from secml.ml.peval.metrics import CMetricAccuracy
 from torch import nn, optim
 
 from secml.ml.classifiers import CClassifierPyTorch
@@ -132,7 +133,7 @@ def make_layers(cfg, batch_norm=False):
 
 def cifar10(lr=1e-2, momentum=0.9, weight_decay=1e-2, preprocess=None,
             softmax_outputs=False, random_state=None, epochs=75, gamma=0.1,
-            batch_size=100, lr_schedule=(25, 50), n_channel=64):
+            batch_size=100, lr_schedule=(25, 50), n_channel=64, transform_train=None):
     use_cuda = torch.cuda.is_available()
     if random_state is not None:
         torch.manual_seed(random_state)
@@ -151,39 +152,4 @@ def cifar10(lr=1e-2, momentum=0.9, weight_decay=1e-2, preprocess=None,
                               optimizer_scheduler=scheduler, epochs=epochs,
                               input_shape=(3, 32, 32), preprocess=preprocess,
                               random_state=random_state, batch_size=batch_size,
-                              softmax_outputs=softmax_outputs)
-
-
-if __name__ == "__main__":
-    random_state = 999
-
-    # Load data
-    from secml.data.loader import CDataLoaderCIFAR10
-    tr, ts = CDataLoaderCIFAR10().load()
-
-    # Normalize
-    tr.X /= 255.
-    ts.X /= 255.
-
-    # Select 40K samples to train DNN
-    from secml.data.splitter import CTrainTestSplit
-    tr, vl = CTrainTestSplit(train_size=40000, random_state=random_state).split(tr)
-
-    # Fit DNN
-    dnn = cifar10()
-    dnn.verbose = 1  # Can be used to display training process output
-
-    print("Training started...")
-    dnn.fit(tr.X, tr.Y)
-    dnn.verbose = 0
-    print("Training completed!")
-
-    y_pred = dnn.predict(ts.X, return_decision_function=False)
-    from secml.ml.peval.metrics import CMetric
-
-    acc_torch = CMetric.create('accuracy').performance_score(ts.Y, y_pred)
-
-    print("Model Accuracy: {}".format(acc_torch))
-
-    # Save to disk
-    dnn.save_model('cifar10.pkl')
+                              softmax_outputs=softmax_outputs, transform_train=transform_train)
