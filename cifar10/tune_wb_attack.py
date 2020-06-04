@@ -5,31 +5,43 @@ from secml.ml.classifiers.reject import CClassifierRejectThreshold, CClassifierD
 from secml.ml.peval.metrics import CMetricAccuracy
 
 from cifar10.fit_dnn import get_datasets
+from wb_dnr_surrogate import CClassifierDNRSurrogate
+from wb_nr_surrogate import CClassifierRejectSurrogate
+
+# TODO: Set this!
+CLF = 'dnr'
 
 random_state = 999
-tr, _, ts = get_datasets(random_state)
+_, vl, ts = get_datasets(random_state)
 
 # Load classifier and wrap it
-# NR
-# clf = CClassifierRejectThreshold.load('nr.gz')
-# clf = CClassifierRejectSurrogate(clf)
-
-# # DNR
-clf = CClassifierDNR.load('dnr.gz')
-# clf = CClassifierDNRSurrogate(clf)
+if CLF == 'nr':
+    # NR
+    clf = CClassifierRejectThreshold.load('nr.gz')
+    # clf = CClassifierRejectSurrogate(clf, gamma_smoothing=10)
+elif CLF == 'dnr':
+    # DNR
+    clf = CClassifierDNR.load('dnr.gz')
+    # clf = CClassifierDNRSurrogate(clf, gamma_smoothing=10)
+else:
+    raise ValueError("Unknown classifier!")
 
 # Check test performance
 y_pred = clf.predict(ts.X, return_decision_function=False)
 acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
 print("Model Accuracy: {}".format(acc))
 
+# Select 10K training data and 1K test data (sampling)
+N_TRAIN = 10000
+tr_idxs = CArray.randsample(vl.X.shape[0], shape=N_TRAIN, random_state=random_state)
+tr_sample = vl[tr_idxs, :]
+
 # Tune attack params
-eight_ds = ts[ts.Y == 8, :]
-x0, y0 = eight_ds[0, :].X, eight_ds[0, :].Y
+x0, y0 = ts[0, :].X, ts[0, :].Y
 
 # Defining attack
 noise_type = 'l2'  # Type of perturbation 'l1' or 'l2'
-dmax = 5.0  # Maximum perturbation
+dmax = 2.0  # Maximum perturbation
 lb, ub = 0., 1.  # Bounds of the attack space. Can be set to `None` for unbounded
 y_target = None  # None if `error-generic` or a class label for `error-specific`
 
@@ -44,7 +56,7 @@ solver_params = {
 # solver_params = None
 pgd_attack = CAttackEvasionPGDExp(classifier=clf,
                                   surrogate_classifier=clf,
-                                  surrogate_data=eight_ds,
+                                  surrogate_data=tr_sample,
                                   distance=noise_type,
                                   lb=lb, ub=ub,
                                   dmax=dmax,
@@ -52,8 +64,7 @@ pgd_attack = CAttackEvasionPGDExp(classifier=clf,
                                   y_target=y_target)
 pgd_attack.verbose = 2  # DEBUG
 
-eva_y_pred, _, eva_adv_ds, _ = pgd_attack.run(x0, y0, double_init=False)
-# assert eva_y_pred.item == 8, "Attack not working"
+eva_y_pred, _, eva_adv_ds, _ = pgd_attack.run(x0, y0)#, double_init=False)
 
 # Plot attack loss function
 fig = CFigure(height=5, width=10)
@@ -84,5 +95,4 @@ fig.savefig("wb_attack_confidence.png")
 
 # Dump attack to disk
 pgd_attack.verbose = 0
-pgd_attack.y_target = None
-pgd_attack.save('dnr_wb_attack')
+pgd_attack.save(CLF+'_wb_attack')

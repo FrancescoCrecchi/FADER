@@ -3,8 +3,9 @@ from secml.ml import CClassifier
 
 class CClassifierDNRSurrogate(CClassifier):
 
-    def __init__(self, dnr):
+    def __init__(self, dnr, gamma_smoothing=1.0):
         self._dnr = dnr
+        self._gamma_smooth = gamma_smoothing
         super().__init__()
 
     @property
@@ -46,10 +47,10 @@ class CClassifierDNRSurrogate(CClassifier):
             for l in self._dnr._layers:
                 # - Reduce kernel gammas
                 for c in range(self._dnr.n_classes-1):
-                    self._dnr._layer_clfs[l]._binary_classifiers[c].kernel.gamma /= 1000
+                    self._dnr._layer_clfs[l]._binary_classifiers[c].kernel.gamma /= self._gamma_smooth
             # - Collector
             for c in range(self._dnr.n_classes-1):
-                self._dnr.clf._binary_classifiers[c].kernel.gamma /= 1000
+                self._dnr.clf._binary_classifiers[c].kernel.gamma /= self._gamma_smooth
 
             # 2. Update computed gradient:
             grad += self._dnr._backward(w)
@@ -58,10 +59,10 @@ class CClassifierDNRSurrogate(CClassifier):
             # - Layer classifiers:
             for l in self._dnr._layers:
                 for c in range(self._dnr.n_classes-1):
-                    self._dnr._layer_clfs[l]._binary_classifiers[c].kernel.gamma *= 1000
+                    self._dnr._layer_clfs[l]._binary_classifiers[c].kernel.gamma *= self._gamma_smooth
             # - Collector
             for c in range(self._dnr.n_classes-1):
-                self._dnr.clf._binary_classifiers[c].kernel.gamma *= 1000
+                self._dnr.clf._binary_classifiers[c].kernel.gamma *= self._gamma_smooth
 
             # DEBUG: DOUBLE CHECK
             restored_grad = self._dnr._backward(w)

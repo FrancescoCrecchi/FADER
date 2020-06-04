@@ -3,8 +3,9 @@ from secml.ml import CClassifier
 
 class CClassifierRejectSurrogate(CClassifier):
 
-    def __init__(self, clf_rej):
+    def __init__(self, clf_rej, gamma_smoothing=1.0):
         self._clf_rej = clf_rej
+        self._gamma_smooth = gamma_smoothing
         super().__init__()
 
     @property
@@ -43,14 +44,14 @@ class CClassifierRejectSurrogate(CClassifier):
 
             # 1. Reduce gammas:
             for c in range(self._clf_rej.n_classes - 1):
-                self._clf_rej._clf._binary_classifiers[c].kernel.gamma /= 1000
+                self._clf_rej._clf._binary_classifiers[c].kernel.gamma /= self._gamma_smooth
 
             # 2. Update computed gradient:
             grad += self._clf_rej.backward(w)
 
             # 3. Restore gammas:
             for c in range(self._clf_rej.n_classes - 1):
-                self._clf_rej._clf._binary_classifiers[c].kernel.gamma *= 1000
+                self._clf_rej._clf._binary_classifiers[c].kernel.gamma *= self._gamma_smooth
 
             # DEBUG: DOUBLE CHECK
             restored_grad = self._clf_rej.backward(w)
