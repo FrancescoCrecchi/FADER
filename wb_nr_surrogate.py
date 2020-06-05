@@ -25,7 +25,7 @@ class CClassifierRejectSurrogate(CClassifier):
 
     def _forward(self, x):
         self._clf_rej._cached_x = self._cached_x
-        return self._clf_rej.forward(x)
+        return self._clf_rej.forward(x)     # TODO: CHECK THIS! (Caching always enabled!)
 
     def _backward(self, w):
 
