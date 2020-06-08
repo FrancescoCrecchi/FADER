@@ -9,7 +9,7 @@ from wb_dnr_surrogate import CClassifierDNRSurrogate
 from wb_nr_surrogate import CClassifierRejectSurrogate
 
 # TODO: Set this!
-CLF = 'nr'
+CLF = 'dnr'
 
 random_state = 999
 _, vl, ts = get_datasets(random_state)
@@ -24,7 +24,7 @@ elif CLF == 'dnr':
     clf = CClassifierDNR.load('dnr.gz')
     clf = CClassifierDNRSurrogate(clf, gamma_smoothing=1000)
 elif CLF == 'tsne_rej':
-    # NR
+    # TNR
     clf = CClassifierRejectThreshold.load('tsne_rej.gz')
     clf = CClassifierRejectSurrogate(clf, gamma_smoothing=1000)
 else:
