@@ -9,7 +9,7 @@ from wb_dnr_surrogate import CClassifierDNRSurrogate
 from wb_nr_surrogate import CClassifierRejectSurrogate
 
 # TODO: Set this!
-CLF = 'dnr'
+CLF = 'nr'
 
 random_state = 999
 _, vl, ts = get_datasets(random_state)
@@ -18,11 +18,15 @@ _, vl, ts = get_datasets(random_state)
 if CLF == 'nr':
     # NR
     clf = CClassifierRejectThreshold.load('nr.gz')
-    # clf = CClassifierRejectSurrogate(clf, gamma_smoothing=1000)
+    clf = CClassifierRejectSurrogate(clf, gamma_smoothing=1000)
 elif CLF == 'dnr':
     # DNR
     clf = CClassifierDNR.load('dnr.gz')
-    # clf = CClassifierDNRSurrogate(clf, gamma_smoothing=1000)
+    clf = CClassifierDNRSurrogate(clf, gamma_smoothing=1000)
+elif CLF == 'tsne_rej':
+    # NR
+    clf = CClassifierRejectThreshold.load('tsne_rej.gz')
+    clf = CClassifierRejectSurrogate(clf, gamma_smoothing=1000)
 else:
     raise ValueError("Unknown classifier!")
 
@@ -93,6 +97,6 @@ fig.sp.ylabel('Confidence')
 fig.sp.legend()
 fig.savefig("wb_attack_confidence.png")
 
-# Dump attack to disk
-pgd_attack.verbose = 0
-pgd_attack.save(CLF+'_wb_attack')
+# # Dump attack to disk
+# pgd_attack.verbose = 0
+# pgd_attack.save(CLF+'_wb_attack')
