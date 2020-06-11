@@ -9,7 +9,7 @@ from wb_dnr_surrogate import CClassifierDNRSurrogate
 from wb_nr_surrogate import CClassifierRejectSurrogate
 
 # TODO: Set this!
-CLF = 'dnr'
+CLF = 'nr'
 
 random_state = 999
 _, vl, ts = get_datasets(random_state)
@@ -26,7 +26,7 @@ elif CLF == 'dnr':
 elif CLF == 'tsne_rej':
     # TNR
     clf = CClassifierRejectThreshold.load('tsne_rej.gz')
-    clf = CClassifierRejectSurrogate(clf, gamma_smoothing=1000)
+    # clf = CClassifierRejectSurrogate(clf, gamma_smoothing=1000)
 else:
     raise ValueError("Unknown classifier!")
 
@@ -40,12 +40,19 @@ N_TRAIN = 10000
 tr_idxs = CArray.randsample(vl.X.shape[0], shape=N_TRAIN, random_state=random_state)
 tr_sample = vl[tr_idxs, :]
 
-# Tune attack params
-x0, y0 = ts[0, :].X, ts[0, :].Y
+# # Tune attack params
+# x0, y0 = ts[0, :].X, ts[0, :].Y
+
+# DEBUG
+from secml.data import CDataset
+not_evading_samples = CDataset.load("not_evading_wb_"+CLF+".gz")
+
+SAMPLE_ID = 4
+x0, y0 = not_evading_samples[SAMPLE_ID, :].X, not_evading_samples[SAMPLE_ID, :].Y
 
 # Defining attack
 noise_type = 'l2'  # Type of perturbation 'l1' or 'l2'
-dmax = 5.0  # Maximum perturbation
+dmax = 4.0  # Maximum perturbation
 lb, ub = 0., 1.  # Bounds of the attack space. Can be set to `None` for unbounded
 y_target = None  # None if `error-generic` or a class label for `error-specific`
 
@@ -53,9 +60,9 @@ y_target = None  # None if `error-generic` or a class label for `error-specific`
 solver_params = {
     'eta': 0.1,
     'eta_min': 0.1,
-    # 'eta_pgd': 0.1,
-    'max_iter': 100,
-    'eps': 1e-10,
+    'eta_pgd': 0.25,
+    'max_iter': 1000,
+    'eps': 1e-6
 }
 # solver_params = None
 pgd_attack = CAttackEvasionPGDExp(classifier=clf,
@@ -67,8 +74,7 @@ pgd_attack = CAttackEvasionPGDExp(classifier=clf,
                                   solver_params=solver_params,
                                   y_target=y_target)
 pgd_attack.verbose = 2  # DEBUG
-
-eva_y_pred, _, eva_adv_ds, _ = pgd_attack.run(x0, y0)#, double_init=False)
+eva_y_pred, _, eva_adv_ds, _ = pgd_attack.run(x0, y0) #, double_init=False)
 
 # Plot attack loss function
 fig = CFigure(height=5, width=10)

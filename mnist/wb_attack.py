@@ -7,7 +7,7 @@ from mnist.attack_dnn import security_evaluation
 from mnist.fit_dnn import get_datasets
 
 CLFS = ['nr', 'dnr']
-USE_DOUBLE_INIT = True
+# USE_DOUBLE_INIT = True
 
 N_SAMPLES = 100     # TODO: restore full dataset
 if __name__ == '__main__':
@@ -29,7 +29,7 @@ if __name__ == '__main__':
 
         # "Used to perturb all test samples"
         eps = CArray.arange(start=0, step=0.5, stop=5.1)
-        sec_eval = security_evaluation(pgd_attack, ts[:N_SAMPLES, :], eps, double_init=USE_DOUBLE_INIT)
+        sec_eval = security_evaluation(pgd_attack, ts[:N_SAMPLES, :], eps)
 
         # Save to disk
         sec_eval.save(_clf+'_wb_seval')
