@@ -2,12 +2,7 @@ from secml.ml import CClassifier
 from secml.ml.classifiers.reject import CClassifierReject
 
 
-class CClassifierRejectSurrogate(CClassifier):
-
-    # HACK: c_attack_evasion_pgd_ls:_find_k_c check for type to avoid rejection class!
-    @property
-    def __class__(self):
-        return self._clf_rej.__class__
+class CClassifierRejectSurrogate(CClassifierReject):
 
     def __init__(self, clf_rej, gamma_smoothing=1.0):
         self._clf_rej = clf_rej
@@ -28,6 +23,11 @@ class CClassifierRejectSurrogate(CClassifier):
     @property
     def n_features(self):
         return self._clf_rej.n_features
+
+    # IMPLEMENT
+
+    def predict(self, x, return_decision_function=False, n_jobs=1):
+        return self._clf_rej.predict(x, return_decision_function)
 
     # DO NOT FIT
     def _fit(self, x, y):
@@ -56,6 +56,7 @@ class CClassifierRejectSurrogate(CClassifier):
         grad = self._clf_rej.gradient(self._cached_x, w)
 
         if grad.norm() < 0.01:
+            self.logger.info('** Smoothing Activated ***')
             orig_grad = grad.deepcopy()  # DEBUG
 
             # 1. Reduce gammas:

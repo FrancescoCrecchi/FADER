@@ -19,6 +19,7 @@ class CClassifierDNRSurrogate(CClassifierRejectSurrogate):
         grad = self._clf_rej.gradient(self._cached_x, w)
 
         if grad.norm() < 0.01:
+            self.logger.info('** Smoothing Activated ***')
             orig_grad = grad.deepcopy()  # DEBUG
 
             # 1. Reduce gammas:
