@@ -1,15 +1,17 @@
 from secml.array import CArray
+from secml.data.splitter import CDataSplitterKFold
 from secml.ml.classifiers.multiclass import CClassifierMulticlassOVA
 from secml.ml.classifiers.reject import CClassifierRejectThreshold
-from secml.ml.features import CNormalizerDNN, CNormalizerMinMax
+from secml.ml.features import CNormalizerDNN, CNormalizerMinMax, CNormalizerMeanStd
 from secml.ml.kernels import CKernelRBF
 from secml.ml.peval.metrics import CMetricAccuracy
 
 from components.c_classifier_kde import CClassifierKDE
 from components.c_reducer_ptsne import CReducerPTSNE
 
-from mnist.cnn_mnist import cnn_mnist_model
-from mnist.fit_dnn import get_datasets
+from cifar10.cnn_cifar10 import cifar10
+from cifar10.fit_dnn import get_datasets
+
 
 N_TRAIN, N_TEST = 10000, 1000
 if __name__ == '__main__':
@@ -18,8 +20,8 @@ if __name__ == '__main__':
     _, vl, ts = get_datasets(random_state)
 
     # Load classifier
-    dnn = cnn_mnist_model()
-    dnn.load_model('cnn_mnist.pkl')
+    dnn = cifar10(preprocess=CNormalizerMeanStd(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
+    dnn.load_model('cnn_cifar10.pkl')
 
     # Check test performance
     y_pred = dnn.predict(ts.X, return_decision_function=False)
@@ -27,7 +29,7 @@ if __name__ == '__main__':
     print("Model Accuracy: {}".format(acc))
 
     # Create layer_classifier
-    feat_extr = CNormalizerDNN(dnn, out_layer='features:relu4')
+    feat_extr = CNormalizerDNN(dnn, out_layer='features:29')
     # Compose classifier
     tsne = CReducerPTSNE(epochs=250, batch_size=128, random_state=random_state, preprocess=feat_extr)
     nmz = CNormalizerMinMax(preprocess=tsne)
@@ -39,43 +41,35 @@ if __name__ == '__main__':
     ts_idxs = CArray.randsample(ts.X.shape[0], shape=N_TEST, random_state=random_state)
     ts_sample = ts[ts_idxs, :]
 
-    # # Xval
-    # def compute_hiddens(n_hiddens, n_layers):
-    #     return sum([[[l] * k for l in n_hiddens] for k in range(1, n_layers+1)], [])
-    #
-    # xval_params = {
-    #     'preprocess.preprocess.n_hiddens': compute_hiddens([64, 128, 256], 2),
-    #     'kernel.gamma': [0.1, 1, 10, 100]
-    # }
-    #
-    # # Let's create a 3-Fold data splitter
-    # from secml.data.splitter import CDataSplitterKFold
-    #
-    # xval_splitter = CDataSplitterKFold(num_folds=3, random_state=random_state)
-    #
-    # # Parallel?
-    # clf.n_jobs = 16
-    #
-    # # Select and set the best training parameters for the classifier
-    # clf.verbose = 1
-    # print("Estimating the best training parameters...")
-    # best_params = clf.estimate_parameters(
-    #     dataset=tr_sample,
-    #     parameters=xval_params,
-    #     splitter=xval_splitter,
-    #     metric='accuracy',
-    #     perf_evaluator='xval'
-    # )
-    #
-    # print("The best training parameters are: ",
-    #       [(k, best_params[k]) for k in sorted(best_params)])
+    # Xval
+    def compute_hiddens(n_hiddens, n_layers):
+        return sum([[[l] * k for l in n_hiddens] for k in range(1, n_layers+1)], [])
 
-    # Setting best params (external xval)
-    clf.set_params({
-        'kernel.gamma': 100,
-        'preprocess.preprocess.n_hiddens': [128, 128]}
+    xval_params = {
+        'preprocess.preprocess.n_hiddens': compute_hiddens([64, 256], 2),
+        'kernel.gamma': [1e-3, 1, 100, 1000]
+    }
+
+    # Let's create a 3-Fold data splitter
+    xval_splitter = CDataSplitterKFold(num_folds=3, random_state=random_state)
+
+    # Parallel?
+    clf.n_jobs = 8
+
+    # Select and set the best training parameters for the classifier
+    clf.verbose = 1
+    print("Estimating the best training parameters...")
+    best_params = clf.estimate_parameters(
+        dataset=tr_sample,
+        parameters=xval_params,
+        splitter=xval_splitter,
+        metric='accuracy',
+        perf_evaluator='xval'
     )
-    # Expected performance: 0.9735
+    clf.verbose = 0
+
+    print("The best training parameters are: ",
+          [(k, best_params[k]) for k in sorted(best_params)])
 
     # We can now create a classifier with reject
     clf.preprocess = None  # TODO: "preprocess should be passed to outer classifier..."
@@ -88,10 +82,7 @@ if __name__ == '__main__':
 
     # Check test performance
     y_pred = clf_rej.predict(ts.X, return_decision_function=False)
-
-    from secml.ml.peval.metrics import CMetric, CMetricAccuracy
-
-    acc = CMetric.create('accuracy').performance_score(ts.Y, y_pred)
+    acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
     print("Model Accuracy: {}".format(acc))
 
     # Dump to disk

@@ -1,4 +1,6 @@
-from secml.array import CArray
+# import multiprocessing
+# multiprocessing.set_start_method('spawn', force=True)
+#
 from secml.data.splitter import CDataSplitterKFold
 from secml.ml import CClassifierSVM
 from secml.ml.classifiers.multiclass import CClassifierMulticlassOVA
@@ -17,6 +19,7 @@ def eval(clf, dset):
     # Evaluate the accuracy of the classifier
     return CMetricAccuracy().performance_score(y, y_pred)
 
+
 N_TRAIN, N_TEST = 10000, 1000
 if __name__ == '__main__':
     random_state = 999
@@ -25,7 +28,7 @@ if __name__ == '__main__':
 
     # Load classifier
     dnn = cnn_mnist_model()
-    dnn.load_model('./mnist/cnn_mnist.pkl')
+    dnn.load_model('../mnist/cnn_mnist.pkl')
 
     # Check test performance
     y_pred = dnn.predict(ts.X, return_decision_function=False)
@@ -51,7 +54,7 @@ if __name__ == '__main__':
 
     # DEBUG
     clf.verbose = 1
-    clf.n_jobs = 4
+    clf.n_jobs = 10
 
     # Xval
     xval_splitter = CDataSplitterKFold(num_folds=3, random_state=random_state)

@@ -1,6 +1,3 @@
-# from setGPU import setGPU
-# setGPU()
-
 import os
 import torch
 from torch import nn

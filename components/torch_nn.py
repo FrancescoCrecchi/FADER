@@ -1,7 +1,3 @@
-# from setGPU import setGPU
-# setGPU(-1)
-
-from secml.ml.peval.metrics import CMetricAccuracy
 from torch import nn, optim
 from collections import OrderedDict
 
@@ -9,6 +5,15 @@ from secml.array import CArray
 from secml.data.loader import CDLRandom
 from secml.data.splitter import CTrainTestSplit, CDataSplitterKFold
 from secml.ml import CNormalizerMinMax, CClassifierPyTorch
+from secml.ml.peval.metrics import CMetricAccuracy
+from collections import OrderedDict
+
+from secml.array import CArray
+from secml.data.loader import CDLRandom
+from secml.data.splitter import CTrainTestSplit, CDataSplitterKFold
+from secml.ml import CNormalizerMinMax, CClassifierPyTorch
+from secml.ml.peval.metrics import CMetricAccuracy
+from torch import nn, optim
 
 
 class MLP(nn.Module):
@@ -61,7 +66,7 @@ class MLPytorch(CClassifierPyTorch):
     def __init__(self, input_dims, n_hiddens, n_class,
                  loss=None,
                  random_state=None, preprocess=None,
-                 epochs=10, batch_size=1, lr=1e-3):
+                 epochs=10, batch_size=1, lr=1e-3, validation_data=None):
         self._input_dims = input_dims
         self._n_hiddens = n_hiddens
         self._n_class = n_class
@@ -75,7 +80,7 @@ class MLPytorch(CClassifierPyTorch):
 
         super().__init__(model, loss=_loss, optimizer=_optimizer, input_shape=(self._input_dims,),
                          random_state=random_state, preprocess=preprocess,
-                         epochs=epochs, batch_size=batch_size)
+                         epochs=epochs, batch_size=batch_size, validation_data=validation_data)
 
     def _build_clf(self):
         layers = make_layers(self._input_dims, self._n_hiddens, self._n_class)

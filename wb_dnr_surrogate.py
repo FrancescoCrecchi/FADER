@@ -16,7 +16,8 @@ class CClassifierDNRSurrogate(CClassifierRejectSurrogate):
             - si somma al grad calcolato prima, il gradiente calcolato con i gamma modificati
             - si ripristinano i gamma originali
         '''
-        grad = self._clf_rej.gradient(self._cached_x, w)
+        self._clf_rej._cached_x = self._cached_x
+        grad = self._clf_rej.backward(w)
 
         if grad.norm() < 0.01:
             self.logger.info('** Smoothing Activated ***')
@@ -25,12 +26,10 @@ class CClassifierDNRSurrogate(CClassifierRejectSurrogate):
             # 1. Reduce gammas:
             # - Layer classifiers:
             for l in self._clf_rej._layers:
-                # - Reduce kernel gammas
-                for c in range(self._clf_rej.n_classes-1):
-                    self._clf_rej._layer_clfs[l]._binary_classifiers[c].kernel.gamma /= self._gamma_smooth
+                # - Reduce kernel gamma
+                self._clf_rej._layer_clfs[l].kernel.gamma /= self._gamma_smooth
             # - Collector
-            for c in range(self._clf_rej.n_classes-1):
-                self._clf_rej.clf._binary_classifiers[c].kernel.gamma /= self._gamma_smooth
+            self._clf_rej._clf.kernel.gamma /= self._gamma_smooth
 
             # 2. Update computed gradient:
             grad = self._clf_rej.gradient(self._cached_x, w)
@@ -38,11 +37,10 @@ class CClassifierDNRSurrogate(CClassifierRejectSurrogate):
             # 3. Restore gammas:
             # - Layer classifiers:
             for l in self._clf_rej._layers:
-                for c in range(self._clf_rej.n_classes-1):
-                    self._clf_rej._layer_clfs[l]._binary_classifiers[c].kernel.gamma *= self._gamma_smooth
+                # - Reduce kernel gamma
+                self._clf_rej._layer_clfs[l].kernel.gamma *= self._gamma_smooth
             # - Collector
-            for c in range(self._clf_rej.n_classes-1):
-                self._clf_rej.clf._binary_classifiers[c].kernel.gamma *= self._gamma_smooth
+            self._clf_rej._clf.kernel.gamma *= self._gamma_smooth
 
             # DEBUG: DOUBLE CHECK
             restored_grad = self._clf_rej.gradient(self._cached_x, w)

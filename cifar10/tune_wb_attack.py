@@ -2,42 +2,48 @@ from secml.adv.attacks import CAttackEvasionPGDExp
 from secml.array import CArray
 from secml.figure import CFigure
 from secml.ml.classifiers.reject import CClassifierRejectThreshold, CClassifierDNR
-from secml.ml.peval.metrics import CMetricAccuracy
+from secml.ml.peval.metrics import CMetricAccuracy, CMetricAccuracyReject
 
 from cifar10.fit_dnn import get_datasets
+
 from wb_dnr_surrogate import CClassifierDNRSurrogate
 from wb_nr_surrogate import CClassifierRejectSurrogate
 
 # TODO: Set this!
-CLF = 'dnr'
+CLF = 'tsne_rej'
+USE_SMOOTHING = True
+N_SAMPLES = 100
+N_PLOTS = 10
 
 random_state = 999
 _, vl, ts = get_datasets(random_state)
 
 # Load classifier and wrap it
-if CLF == 'nr':
+if CLF == 'nr' or CLF == 'tsne_rej':
     # NR
-    clf = CClassifierRejectThreshold.load('nr.gz')
-    # clf = CClassifierRejectSurrogate(clf, gamma_smoothing=10)
-elif CLF == 'dnr':
+    clf = CClassifierRejectThreshold.load(CLF+'.gz')
+    if USE_SMOOTHING:
+        clf = CClassifierRejectSurrogate(clf, gamma_smoothing=10)
+elif CLF == 'dnr' or CLF == 'tnr':
     # DNR
-    clf = CClassifierDNR.load('dnr.gz')
-    # clf = CClassifierDNRSurrogate(clf, gamma_smoothing=10)
+    if CLF == 'dnr':
+        CLF = 'dnr_NEW'     # HACK
+    clf = CClassifierDNR.load(CLF+'.gz')
+    if USE_SMOOTHING:
+        clf = CClassifierDNRSurrogate(clf, gamma_smoothing=10)
 else:
     raise ValueError("Unknown classifier!")
+# clf.verbose = 2     # DEBUG
 
 # Check test performance
 y_pred = clf.predict(ts.X, return_decision_function=False)
-acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
-print("Model Accuracy: {}".format(acc))
+perf = CMetricAccuracy().performance_score(ts.Y, y_pred)
+print("Model Accuracy: {}".format(perf))
 
 # Select 10K training data and 1K test data (sampling)
 N_TRAIN = 10000
 tr_idxs = CArray.randsample(vl.X.shape[0], shape=N_TRAIN, random_state=random_state)
 tr_sample = vl[tr_idxs, :]
-
-# Tune attack params
-x0, y0 = ts[0, :].X, ts[0, :].Y
 
 # Defining attack
 noise_type = 'l2'  # Type of perturbation 'l1' or 'l2'
@@ -49,8 +55,8 @@ y_target = None  # None if `error-generic` or a class label for `error-specific`
 solver_params = {
     'eta': 0.1,
     'eta_min': 0.1,
-    # 'eta_pgd': 0.1,
-    'max_iter': 100,
+    # 'eta_pgd': 0.01,
+    'max_iter': 40,
     'eps': 1e-6,
 }
 # solver_params = None
@@ -64,34 +70,58 @@ pgd_attack = CAttackEvasionPGDExp(classifier=clf,
                                   y_target=y_target)
 pgd_attack.verbose = 2  # DEBUG
 
-eva_y_pred, _, eva_adv_ds, _ = pgd_attack.run(x0, y0)#, double_init=False)
+# Attack N_SAMPLES
+sample = ts[:N_SAMPLES, :]
+eva_y_pred, _, eva_adv_ds, _ = pgd_attack.run(sample.X, sample.Y)    # double_init=False
 
-# Plot attack loss function
-fig = CFigure(height=5, width=10)
-fig.sp.plot(pgd_attack._f_seq, marker='o', label='PGDExp')
-fig.sp.grid()
-fig.sp.xticks(range(pgd_attack._f_seq.shape[0]))
-fig.sp.xlabel('Iteration')
-fig.sp.ylabel('Loss')
-fig.sp.legend()
-fig.savefig("wb_attack_loss.png")
+# Compute attack performance
+assert dmax > 0, "Wrong dmax!"
+perf = CMetricAccuracyReject().performance_score(y_true=sample.Y, y_pred=eva_y_pred)
+print("Performance under attack: {0:.2f}".format(perf))
 
-# Plot confidence during attack
-n_iter, n_classes = pgd_attack.x_seq.shape[0], clf.n_classes
-scores = CArray.zeros((n_iter, n_classes))
+# Plot N_PLOTS random attack samples
 
-for i in range(pgd_attack.x_seq.shape[0]):
-    scores[i, :] = clf.decision_function(pgd_attack.x_seq[i, :])
+# sel_idxs = CArray.randsample(sample.X.shape[0], shape=N_PLOTS, random_state=random_state)
+# selected = sample[sel_idxs, :]
 
-fig = CFigure(height=5, width=10)
-for i in range(-1, clf.n_classes-1):
-    fig.sp.plot(scores[:, i], marker='o', label=str(i))
-fig.sp.grid()
-fig.sp.xticks(range(pgd_attack.x_seq.shape[0]))
-fig.sp.xlabel('Iteration')
-fig.sp.ylabel('Confidence')
-fig.sp.legend()
-fig.savefig("wb_attack_confidence.png")
+# TODO: Select "not evading" sampels!
+not_evading_samples = sample[(eva_y_pred == sample.Y).logical_or(eva_y_pred == -1), :]
+selected = not_evading_samples
+# not_evading_samples.save("not_evading_wb_"+CLF)
+
+fig = CFigure(height=5*N_PLOTS, width=16)
+for i in range(N_PLOTS):
+
+    x0, y0 = selected[i, :].X, selected[i, :].Y
+
+    # Rerun attack to have '_f_seq' and 'x_seq'
+    _ = pgd_attack.run(x0, y0)
+
+    # Loss curve
+    sp1 = fig.subplot(N_PLOTS, 2, i*2+1)
+    sp1.plot(pgd_attack._f_seq, marker='o', label='PGDExp')
+    sp1.grid()
+    sp1.xticks(range(pgd_attack._f_seq.shape[0]))
+    sp1.xlabel('Iteration')
+    sp1.ylabel('Loss')
+    sp1.legend()
+
+    # Confidence curves
+    n_iter, n_classes = pgd_attack.x_seq.shape[0], clf.n_classes
+    scores = CArray.zeros((n_iter, n_classes))
+    for k in range(pgd_attack.x_seq.shape[0]):
+        scores[k, :] = clf.decision_function(pgd_attack.x_seq[k, :])
+
+    sp2 = fig.subplot(N_PLOTS, 2, i*2+2)
+    for k in range(-1, clf.n_classes-1):
+        sp2.plot(scores[:, k], marker='o', label=str(k))
+    sp2.grid()
+    sp2.xticks(range(pgd_attack.x_seq.shape[0]))
+    sp2.xlabel('Iteration')
+    sp2.ylabel('Confidence')
+    sp2.legend()
+
+fig.savefig("wb_attack_tuning.png")
 
 # Dump attack to disk
 pgd_attack.verbose = 0

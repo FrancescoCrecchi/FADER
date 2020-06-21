@@ -1,6 +1,5 @@
 from secml.array import CArray
-from secml.ml import CClassifierSVM, CKernelRBF
-from secml.ml.classifiers.multiclass import CClassifierMulticlassOVA
+from secml.ml import CKernelRBF
 from secml.ml.classifiers.reject import CClassifierDNR
 from secml.ml.classifiers.sklearn.c_classifier_svm_m import CClassifierSVMM
 from secml.ml.peval.metrics import CMetricAccuracy
@@ -25,12 +24,6 @@ if __name__ == '__main__':
 
     # Create DNR
     layers = ['features:relu4', 'features:relu3', 'features:relu2']
-    # combiner = CClassifierMulticlassOVA(
-    #     CClassifierSVM, kernel=CKernelRBF(gamma=1), C=1)
-    # layer_clf = CClassifierMulticlassOVA(
-    #     CClassifierSVM, kernel=CKernelRBF(gamma=1), C=1)
-
-    # *** UPDATE ***
     combiner = CClassifierSVMM(kernel=CKernelRBF(gamma=1), C=1)
     layer_clf = CClassifierSVMM(kernel=CKernelRBF(gamma=1), C=1)
     dnr = CClassifierDNR(combiner, layer_clf, dnn, layers, -1000)

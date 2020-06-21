@@ -27,7 +27,7 @@ if __name__ == '__main__':
     # Create layer_classifier
     feat_extr = CNormalizerDNN(dnn, out_layer='features:29')
     clf = CClassifierMulticlassOVA(CClassifierSVM, kernel=CKernelRBF(), preprocess=feat_extr)
-    # clf.n_jobs = 16
+    clf.n_jobs = 10
 
     # Select 10K training data and 1K test data (sampling)
     tr_idxs = CArray.randsample(vl.X.shape[0], shape=N_TRAIN, random_state=random_state)
@@ -68,16 +68,10 @@ if __name__ == '__main__':
     clf.preprocess = None  # TODO: "preprocess should be passed to outer classifier..."
     clf_rej = CClassifierRejectThreshold(clf, 0., preprocess=feat_extr)
 
-    # DEBUG: single threaded for debugging
-    module = clf_rej
-    while module.preprocess is not None:
-        module.n_jobs = 1
-        module = module.preprocess
-
     # We can now fit the clf_rej
     clf_rej.fit(tr_sample.X, tr_sample.Y)
     # Set threshold (FPR: 10%)
     # TODO: "..and set the rejection threshold for (D)NR to reject 10% of the samples when no attack is performed
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
     # Dump to disk
-    clf_rej.save('clf_rej')
+    clf_rej.save('nr')

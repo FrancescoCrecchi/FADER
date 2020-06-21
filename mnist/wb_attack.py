@@ -6,7 +6,7 @@ from secml.ml.peval.metrics import CMetricAccuracy
 from mnist.attack_dnn import security_evaluation
 from mnist.fit_dnn import get_datasets
 
-CLFS = ['nr', 'dnr']
+CLFS = ['tnr', 'tsne_rej']
 # USE_DOUBLE_INIT = True
 
 N_SAMPLES = 100     # TODO: restore full dataset

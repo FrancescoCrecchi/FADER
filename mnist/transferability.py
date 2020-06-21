@@ -27,7 +27,7 @@ def transfer_attack(clf, seval):
 
 # from mnist.tsne_rej_gamma_test import GAMMA
 # CLFS = ['tsne_rej_test_gamma_' + str(gamma) for gamma in GAMMA]
-CLFS = ['nr', 'dnr']
+CLFS = ['tsne_rej', 'tnr']     # 'nr', 'dnr',
 if __name__ == '__main__':
     random_state = 999
 
@@ -37,9 +37,9 @@ if __name__ == '__main__':
     for _clf in CLFS:
 
         # Load clf
-        if _clf == 'nr':
+        if _clf == 'nr' or _clf == 'tsne_rej':
             clf = CClassifierRejectThreshold.load(_clf + '.gz')
-        elif _clf == 'dnr':
+        elif _clf == 'dnr' or _clf == 'tnr':
             clf = CClassifierDNR.load(_clf + '.gz')
         else:
             raise ValueError("Unknown model to test for transferability!")

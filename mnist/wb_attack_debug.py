@@ -1,12 +1,11 @@
 from secml.adv.attacks import CAttackEvasionPGDExp
-from secml.adv.seceval import CSecEval
 from secml.array import CArray
 from secml.data import CDataset
 from secml.figure import CFigure
 from secml.ml.peval.metrics import CMetricAccuracyReject
 
 from mnist.attack_dnn import security_evaluation
-from mnist.plot_seval import compute_performance, rej_percentage
+from plot_seval import compute_performance, rej_percentage
 
 CLF = 'dnr'
 # seval = CSecEval.load(CLF + '_wb_seval.gz')
@@ -21,18 +20,18 @@ CLF = 'dnr'
 
 # Load attack
 pgd_attack = CAttackEvasionPGDExp.load(CLF + '_wb_attack.gz')
-# # HACK: Reducing 'max_iter'
-# pgd_attack._solver.max_iter = 30
+# DEBUG: Attack Verbosity
+pgd_attack.verbose=1
 
 # Load not evading samples from previous attack version
 not_evading_samples = CDataset.load("not_evading_wb_"+CLF+".gz")
 
 # Perform sec_eval on non-evading samples
-eps = CArray.arange(start=3.5, step=0.5, stop=5.1)
+eps = CArray.arange(start=2.5, step=0.5, stop=5.1)
 sec_eval = security_evaluation(pgd_attack, not_evading_samples, eps)
 
 # # Save to disk
-# sec_eval.save(CLF+'_wb_new_attack')
+sec_eval.save(CLF+'_wb_eval_not_evading')
 
 # Plot performance
 fig = CFigure(height=8, width=10)

@@ -7,7 +7,7 @@ from mnist.cnn_mnist import cnn_mnist_model
 from mnist.fit_dnn import get_datasets
 
 
-def security_evaluation(attack, dset, evals, double_init=False):
+def security_evaluation(attack, dset, evals, double_init=True):
 
     # Security evaluation
     seval = CSecEval(attack=attack, param_name='dmax', param_values=evals, save_adv_ds=True)

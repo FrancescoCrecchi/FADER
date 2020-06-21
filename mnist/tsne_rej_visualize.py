@@ -1,10 +1,11 @@
 import re
 from secml.adv.seceval import CSecEval
+from secml.array import CArray
 from secml.data import CDataset
 from secml.figure import CFigure
 from secml.ml.classifiers.reject import CClassifierRejectThreshold
 
-GAMMA = 1E5
+GAMMA = 1000
 EPS = 3.0
 
 
@@ -32,10 +33,12 @@ if __name__ == '__main__':
 
     # HACK: Detach from preprocesses
     clf_rej.preprocess.preprocess = None
-    clf_rej.clf._n_features = 2
+    clf_rej._clf._n_features = 2
 
-    fig.sp.plot_decision_regions(clf_rej, grid_limits=[[-120, 120], [-120, 120]])
-    fig.sp.show_legend = True       # TODO: enhance this!
+    fig.sp.plot_decision_regions(clf_rej,
+                                 grid_limits=[[-120, 120], [-120, 120]],
+                                 levels=CArray.arange(-1, clf_rej.n_classes).tolist(),
+                                 n_grid_points=100)
     fig.sp.plot_ds(adv_ds_2d)
 
     # Dump to disk

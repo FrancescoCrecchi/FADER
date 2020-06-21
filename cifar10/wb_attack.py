@@ -6,7 +6,7 @@ from secml.ml.peval.metrics import CMetricAccuracy
 from cifar10.attack_dnn import security_evaluation
 from cifar10.fit_dnn import get_datasets
 
-CLFS = ['nr', 'dnr']
+CLFS = ['tsne_rej']
 USE_DOUBLE_INIT = True
 
 N_SAMPLES = 100     # TODO: restore full dataset
@@ -27,7 +27,7 @@ if __name__ == '__main__':
         print("Model Accuracy: {}".format(acc))
 
         # "Used to perturb all test samples"
-        eps = CArray.arange(start=0, step=1/4, stop=2.1)
+        eps = CArray.arange(start=0, step=1/8, stop=2.1)
         sec_eval = security_evaluation(pgd_attack, ts[:N_SAMPLES, :], eps, double_init=USE_DOUBLE_INIT)
 
 
