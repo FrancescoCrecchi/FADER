@@ -1,4 +1,5 @@
 import torch
+from secml.array import CArray
 from torch import nn
 
 import torch_rbf.torch_rbf as rbf
@@ -10,19 +11,19 @@ class RBFNetwork(nn.Module):
         '''
         RBF Network PyTorch Module
         :param n_features: list of layer features sizes
-        :param n_layers: number of layers
-        :param n_hiddens:
-        :param n_classes:
+        :param n_hiddens: list of hidden layer sizes
+        :param n_classes: number of output classes
         '''
         super(RBFNetwork, self).__init__()
         self.n_features = n_features
+        self.n_hiddens = n_hiddens
         n_layers = len(self.n_features)
         # Internals
         self.rbf_layers = nn.ModuleList()
         # Make layers
         for i in range(n_layers):
-            self.rbf_layers.append(rbf.RBF(n_features[i], n_hiddens, rbf.gaussian))
-        self.classifier = nn.Linear(n_layers*n_hiddens, n_classes)
+            self.rbf_layers.append(rbf.RBF(n_features[i], n_hiddens[i], rbf.gaussian))
+            self.classifier = nn.Linear(sum(n_hiddens), n_classes)
 
     def forward(self, x):
         f_x = []
@@ -41,7 +42,7 @@ class RBFNetwork(nn.Module):
 
 if __name__ == '__main__':
     N_FEATURES = [128, 64, 32]
-    N_HIDDENS = 100
+    N_HIDDENS = [256, 128, 64]
     N_CLASSES = 10
 
     # Instantiate object

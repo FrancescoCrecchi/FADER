@@ -9,7 +9,7 @@ from mnist.cnn_mnist import cnn_mnist_model
 from mnist.fit_dnn import get_datasets
 
 
-def rbf_network(dnn, layers, n_hiddens=100, epochs=300, batch_size=32, random_state=None):
+def rbf_network(dnn, layers, n_hiddens=100, epochs=300, batch_size=32, validation_data=None, random_state=None):
     # Use CUDA
     use_cuda = torch.cuda.is_available()
     if random_state is not None:
@@ -18,7 +18,15 @@ def rbf_network(dnn, layers, n_hiddens=100, epochs=300, batch_size=32, random_st
         torch.backends.cudnn.deterministic = True
     # Computing features sizes
     n_feats = [CArray(dnn.get_layer_shape(l)[1:]).prod() for l in layers]
+    # Hidden layer sizes
+    if isinstance(n_hiddens, int):
+        n_hiddens = [n_hiddens] * len(layers)
+    else:
+        assert len(n_hiddens) == len(layers), "Incompatible 'n_hiddens' wrt #layers!"
+        n_hiddens = list(n_hiddens)
+    # RBFNetwork
     model = RBFNetwork(n_feats, n_hiddens, dnn.n_classes)
+    # Loss & Optimizer
     loss = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters())  # --> TODO: Expose optimizer params <--
     return CClassifierPyTorch(model,
@@ -27,15 +35,18 @@ def rbf_network(dnn, layers, n_hiddens=100, epochs=300, batch_size=32, random_st
                               input_shape=(sum(n_feats, )),
                               epochs=epochs,
                               batch_size=batch_size,
-                              random_state=random_state
-                              )
+                              validation_data=validation_data,
+                              random_state=random_state)
 
 
 class CClassifierRBFNetwork(CClassifier):
 
-    def __init__(self, dnn, layers, n_hiddens=100, epochs=300, batch_size=32, random_state=None):
+    def __init__(self, dnn, layers, n_hiddens=100,
+                 epochs=300, batch_size=32,
+                 validation_data=None,
+                 random_state=None):
         # RBF Network
-        self._clf = rbf_network(dnn, layers, n_hiddens, epochs, batch_size, random_state)
+        self._clf = rbf_network(dnn, layers, n_hiddens, epochs, batch_size, validation_data, random_state)
         super(CClassifierRBFNetwork, self).__init__()
 
         # TODO: Parameter Checking
@@ -72,6 +83,8 @@ class CClassifierRBFNetwork(CClassifier):
 
     def _fit(self, x, y):
         x = self._create_scores_dataset(x)
+        if self._clf._validation_data:
+            self._clf._validation_data.X = self._create_scores_dataset(self._clf._validation_data.X)
         self._clf.fit(x, y)
         return self
 
@@ -113,27 +126,30 @@ if __name__ == '__main__':
     acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
     print("Model Accuracy: {}".format(acc))
 
-    # Create DNR
-    layers = ['features:relu4', 'features:relu3', 'features:relu2']
-    rbf_net = CClassifierRBFNetwork(dnn, layers, random_state=random_state)
-
     # Select 10K training data and 1K test data (sampling)
     tr_idxs = CArray.randsample(vl.X.shape[0], shape=N_TRAIN, random_state=random_state)
     tr_sample = vl[tr_idxs, :]
     ts_idxs = CArray.randsample(ts.X.shape[0], shape=N_TEST, random_state=random_state)
     ts_sample = ts[ts_idxs, :]
 
+    # Create DNR
+    layers = ['features:relu2', 'features:relu3', 'features:relu4']
+    n_hiddens = [2056, 2056, 2056]
+    rbf_net = CClassifierRBFNetwork(dnn, layers, n_hiddens=n_hiddens,
+                                    validation_data=ts_sample,      # HACK: AVOID DOING THIS! SELECTING ON TEST SET!
+                                    random_state=random_state)
+
     # Fit DNR
     rbf_net.verbose = 2  # DEBUG
-
     rbf_net.fit(tr_sample.X, tr_sample.Y)
 
     # Check test performance
     y_pred = rbf_net.predict(ts.X, return_decision_function=False)
     acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
-    print("DNR Accuracy: {}".format(acc))
+    print("RBFNet Accuracy: {}".format(acc))
 
     # # Set threshold (FPR: 10%)
     # dnr.threshold = dnr.compute_threshold(0.1, ts_sample)
-    # # Dump to disk
-    # dnr.save('dnr_NEW')
+
+    # Dump to disk
+    rbf_net.save('rbf_net')
