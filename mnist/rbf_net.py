@@ -18,12 +18,6 @@ def rbf_network(dnn, layers, n_hiddens=100, epochs=300, batch_size=32, validatio
         torch.backends.cudnn.deterministic = True
     # Computing features sizes
     n_feats = [CArray(dnn.get_layer_shape(l)[1:]).prod() for l in layers]
-    # Hidden layer sizes
-    if isinstance(n_hiddens, int):
-        n_hiddens = [n_hiddens] * len(layers)
-    else:
-        assert len(n_hiddens) == len(layers), "Incompatible 'n_hiddens' wrt #layers!"
-        n_hiddens = list(n_hiddens)
     # RBFNetwork
     model = RBFNetwork(n_feats, n_hiddens, dnn.n_classes)
     # Loss & Optimizer

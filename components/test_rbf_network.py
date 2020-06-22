@@ -24,8 +24,8 @@ if __name__ == '__main__':
     nmz = CNormalizerMinMax()
     dataset.X = nmz.fit_transform(dataset.X)
 
-    n_feats = [dataset.X.shape[1]]
-    n_hiddens = [10]
+    n_feats = dataset.X.shape[1]
+    n_hiddens = 10
     n_classes = dataset.num_classes
 
     # Torch fix random seed
@@ -43,7 +43,7 @@ if __name__ == '__main__':
     clf = CClassifierPyTorch(rbf_net,
                              loss=loss,
                              optimizer=optimizer,
-                             input_shape=(sum(n_feats, )),
+                             input_shape=(n_feats, ),
                              epochs=500,
                              batch_size=32,
                              random_state=random_state)

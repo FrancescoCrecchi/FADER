@@ -14,9 +14,21 @@ class RBFNetwork(nn.Module):
         :param n_classes: number of output classes
         '''
         super(RBFNetwork, self).__init__()
+
+        # Check inputs
+        # 1. n_features
+        if isinstance(n_features, int):
+            n_features = [n_features]
         self.n_features = n_features
-        self.n_hiddens = n_hiddens
         n_layers = len(self.n_features)
+        # 2. n_hiddens
+        if isinstance(n_hiddens, int):
+            n_hiddens = [n_hiddens] * n_layers
+        else:
+            assert len(n_hiddens) == n_layers, "Incompatible 'n_hiddens' wrt #layers!"
+            n_hiddens = list(n_hiddens)
+        self.n_hiddens = n_hiddens
+
         # Internals
         self.rbf_layers = nn.ModuleList()
         # Make layers
@@ -114,11 +126,11 @@ def test():
     # 1-dimensional output/prediction with a linear layer
 
     # To add more layers, change the layer_widths and layer_centres lists
-    n_features = [2]
-    n_hiddens = [40]
+    n_features = 2
+    n_hiddens = 40
     n_classes = 1
 
-    rbfnet = RBFNetwork(n_features, n_hiddens, n_classes, beta=1e-3)
+    rbfnet = RBFNetwork(n_features, n_hiddens, n_classes, beta=1.0)
     fit_model(rbfnet, tx, ty, 5000, samples, 0.01, nn.BCEWithLogitsLoss())
     rbfnet.eval()
 

@@ -4,6 +4,7 @@
 
 .. moduleauthor:: Ambra Demontis <ambra.demontis@diee.unica.it>
 .. moduleauthor:: Marco Melis <marco.melis@diee.unica.it>
+.. moduleauthor:: Francesco Crecchi <francesco.crecchi@di.unipi.it>
 
 """
 from secml.array import CArray
