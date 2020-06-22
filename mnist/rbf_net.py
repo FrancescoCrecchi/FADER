@@ -134,8 +134,10 @@ if __name__ == '__main__':
 
     # Create DNR
     layers = ['features:relu2', 'features:relu3', 'features:relu4']
-    n_hiddens = [2056, 2056, 2056]
+    n_hiddens = [250, 250, 50]
     rbf_net = CClassifierRBFNetwork(dnn, layers, n_hiddens=n_hiddens,
+                                    epochs=3000,
+                                    batch_size=32,
                                     validation_data=ts_sample,      # HACK: AVOID DOING THIS! SELECTING ON TEST SET!
                                     random_state=random_state)
 
