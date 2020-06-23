@@ -6,7 +6,7 @@ import torch_rbf.torch_rbf as rbf
 
 class RBFNetwork(nn.Module):
 
-    def __init__(self, n_features, n_hiddens, n_classes, beta=1.0):
+    def __init__(self, n_features, n_hiddens, n_classes):
         '''
         RBF Network PyTorch Module
         :param n_features: list of layer features sizes
@@ -31,11 +31,16 @@ class RBFNetwork(nn.Module):
 
         # Internals
         self.rbf_layers = nn.ModuleList()
+
         # Make layers
-        activation = lambda x: rbf.gaussian(x, beta=beta)
         for i in range(n_layers):
-            self.rbf_layers.append(rbf.RBF(n_features[i], n_hiddens[i], activation))
+            self.rbf_layers.append(rbf.RBF(n_features[i], n_hiddens[i], rbf.gaussian))
             self.classifier = nn.Linear(sum(n_hiddens), n_classes)
+
+        # Flags
+        self._train_betas = True
+        self._train_prototypes = True
+
 
     def forward(self, x):
         f_x = []
@@ -50,6 +55,54 @@ class RBFNetwork(nn.Module):
         # Feed through linear layer
         out = self.classifier(f_x)
         return out
+
+    @property
+    def prototypes(self):
+        return  [l.centres for l in self.rbf_layers]
+
+    @prototypes.setter
+    def prototypes(self, value):
+        # TODO: CHECK TYPE OF VALUE. ASSUMING IS A LIST OF PYTORCH TENSORS BY NOW!
+        for i, v in enumerate(value):
+            assert v.shape == self.rbf_layers[i].centres.shape, "Something wrong here!"
+            self.rbf_layers[i].centres.data = v.data
+
+    @property
+    def betas(self):
+        return [l.sigmas for l in self.rbf_layers]
+
+    @betas.setter
+    def betas(self, value):
+        if isinstance(value, int) or isinstance(value, float):
+            value = [torch.Tensor([value]* l.sigmas.size()[0]) for l in self.rbf_layers]
+        assert len(value) == len(self.rbf_layers), "Incompatible 'betas' wrt #layers!"
+        # TODO: CHECK TYPE OF VALUE. ASSUMING IS A LIST OF PYTORCH TENSORS BY NOW!
+        for i, v in enumerate(value):
+            assert v.shape == self.rbf_layers[i].sigmas.shape, "Something wrong here!"
+            self.rbf_layers[i].sigmas.data = v.data
+
+    @property
+    def train_betas(self):
+        return self._train_betas
+
+    @train_betas.setter
+    def train_betas(self, value):
+        assert isinstance(value, bool), "Only boolean flags allowed!"
+        self._train_betas = value
+        for i in range(len(self.rbf_layers)):
+            self.rbf_layers[i].sigmas.requires_grad = self._train_betas
+
+    @property
+    def train_prototypes(self):
+        return self._train_prototypes
+
+    @train_prototypes.setter
+    def train_prototypes(self, value):
+        assert isinstance(value, bool), "Only boolean flags allowed!"
+        self._train_prototypes = value
+        for i in range(len(self.rbf_layers)):
+            self.rbf_layers[i].centres.requires_grad = self._train_prototypes
+
 
 def fit_model(model, x, y, epochs, batch_size, lr, loss_func):
     import sys
@@ -127,10 +180,23 @@ def test():
 
     # To add more layers, change the layer_widths and layer_centres lists
     n_features = 2
-    n_hiddens = 40
+    n_hiddens = [40]
     n_classes = 1
 
-    rbfnet = RBFNetwork(n_features, n_hiddens, n_classes, beta=1.0)
+    rbfnet = RBFNetwork(n_features, n_hiddens, n_classes)
+
+    # # HACK: Try initializing centroids
+    # train_proto = []
+    # for h in n_hiddens:
+    #     # Select 'h' prototypes randomly from training set
+    #     h_selected = np.random.choice(tx.shape[0], size=h, replace=False)
+    #     train_proto.append(tx[h_selected, :])
+    # rbfnet.prototypes = train_proto
+
+    # HACK: Try setting betas
+    rbfnet.betas = 0.001
+    rbfnet.train_betas = False
+
     fit_model(rbfnet, tx, ty, 5000, samples, 0.01, nn.BCEWithLogitsLoss())
     rbfnet.eval()
 
@@ -161,6 +227,7 @@ def test():
     ax[1].set_ylim([-1, 1])
     ax[1].set_title('RBF Decision Boundary')
     plt.show()
+
 
 if __name__ == '__main__':
     # N_FEATURES = [128, 64, 32]
