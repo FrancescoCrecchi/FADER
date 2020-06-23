@@ -8,7 +8,24 @@ from torch import nn, optim
 from components.rbf_network import RBFNetwork
 
 
-class CClassifierPytorchRBFNetwork(CClassifierPyTorch):
+class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
+
+    def __init__(self, model, loss=None, optimizer=None, optimizer_scheduler=None, pretrained=False,
+                 pretrained_classes=None, input_shape=None, random_state=None, preprocess=None, softmax_outputs=False,
+                 epochs=10, batch_size=1, n_jobs=1, transform_train=None, validation_data=None, track_prototypes=False):
+        super().__init__(model, loss, optimizer, optimizer_scheduler, pretrained, pretrained_classes, input_shape,
+                         random_state, preprocess, softmax_outputs, epochs, batch_size, n_jobs, transform_train,
+                         validation_data)
+        # Internals
+        self._track_prototypes = track_prototypes
+
+    @property
+    def track_prototypes(self):
+        return self._track_prototypes
+
+    @track_prototypes.setter
+    def track_prototypes(self, value):
+        self._track_prototypes = value
 
     def _fit(self, x, y):
         """Fit PyTorch model.
@@ -34,7 +51,11 @@ class CClassifierPytorchRBFNetwork(CClassifierPyTorch):
                                             self._validation_data.Y,
                                             batch_size=self._batch_size,
                                             num_workers=self.n_jobs - 1)
-        prototypes = [self.model.prototypes[0].detach().numpy().copy()]
+
+        # HACK: TRACKING PROTOTYPES
+        if self.track_prototypes:
+            prototypes = [[p.copy() for p in self.model.prototypes]]
+
         for epoch in range(self._epochs):
             train_loss = 0.0
             batches = 0
@@ -55,7 +76,8 @@ class CClassifierPytorchRBFNetwork(CClassifierPyTorch):
             if epoch % 10 == 0:
 
                 # HACK: TRACKING PROTOTYPES
-                prototypes.append(self.model.prototypes[0].detach().numpy().copy())
+                if self.track_prototypes:
+                    prototypes.append([p.copy() for p in self.model.prototypes])
 
                 if self._validation_data is not None:
                     # Compute validation performance
@@ -83,8 +105,11 @@ class CClassifierPytorchRBFNetwork(CClassifierPyTorch):
                 self._optimizer_scheduler.step()
 
         self._trained = True
+
         # HACK: STORING PROTOTYPES
-        self._prototypes = prototypes
+        if self.track_prototypes:
+            self._prototypes = prototypes
+
         return self._model
 
 
@@ -133,7 +158,7 @@ if __name__ == '__main__':
     # Loss & Optimizer
     loss = nn.CrossEntropyLoss()
     optimizer = optim.Adam(rbf_net.parameters())
-    clf = CClassifierPytorchRBFNetwork(rbf_net,
+    clf = CClassifierPyTorchRBFNetwork(rbf_net,
                                        loss=loss,
                                        optimizer=optimizer,
                                        input_shape=(n_feats,),

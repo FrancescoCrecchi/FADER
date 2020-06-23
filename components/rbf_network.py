@@ -58,7 +58,7 @@ class RBFNetwork(nn.Module):
 
     @property
     def prototypes(self):
-        return  [l.centres.detach().numpy() for l in self.rbf_layers]
+        return  [l.centres.detach().cpu().numpy() for l in self.rbf_layers]
 
     @prototypes.setter
     def prototypes(self, value):
@@ -69,7 +69,7 @@ class RBFNetwork(nn.Module):
 
     @property
     def betas(self):
-        return [l.sigmas.detach().numpy() for l in self.rbf_layers]
+        return [l.sigmas.cpu().detach().cpu().numpy() for l in self.rbf_layers]
 
     @betas.setter
     def betas(self, value):

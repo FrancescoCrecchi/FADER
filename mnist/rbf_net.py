@@ -1,11 +1,13 @@
-import numpy as np
 import torch
 from secml.array import CArray
 from secml.ml import CClassifierPyTorch, CClassifier, CNormalizerDNN
+from secml.ml.classifiers.reject import CClassifierRejectThreshold
 from secml.ml.peval.metrics import CMetricAccuracy
 from torch import nn, optim
 
 from components.rbf_network import RBFNetwork
+from components.test_rbf_network import CClassifierPyTorchRBFNetwork
+
 from mnist.cnn_mnist import cnn_mnist_model
 from mnist.fit_dnn import get_datasets
 
@@ -24,14 +26,16 @@ def rbf_network(dnn, layers, n_hiddens=100, epochs=300, batch_size=32, validatio
     # Loss & Optimizer
     loss = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters())  # --> TODO: Expose optimizer params <--
-    return CClassifierPyTorch(model,
-                              loss=loss,
-                              optimizer=optimizer,
-                              input_shape=(sum(n_feats, )),
-                              epochs=epochs,
-                              batch_size=batch_size,
-                              validation_data=validation_data,
-                              random_state=random_state)
+    # HACK: TRACKING PROTOTYPES
+    return CClassifierPyTorchRBFNetwork(model,
+                                        loss=loss,
+                                        optimizer=optimizer,
+                                        input_shape=(sum(n_feats, )),
+                                        epochs=epochs,
+                                        batch_size=batch_size,
+                                        validation_data=validation_data,
+                                        track_prototypes=True,      # DEBUG: PROTOTYPES TRACKING ENABLED
+                                        random_state=random_state)
 
 
 class CClassifierRBFNetwork(CClassifier):
@@ -138,8 +142,10 @@ if __name__ == '__main__':
     # Select 10K training data and 1K test data (sampling)
     tr_idxs = CArray.randsample(vl.X.shape[0], shape=N_TRAIN, random_state=random_state)
     tr_sample = vl[tr_idxs, :]
-    ts_idxs = CArray.randsample(ts.X.shape[0], shape=N_TEST, random_state=random_state)
-    ts_sample = ts[ts_idxs, :]
+    # HACK: SELECTING VALIDATION DATA (shape=2*N_TEST)
+    ts_idxs = CArray.randsample(ts.X.shape[0], shape=2*N_TEST, random_state=random_state)
+    vl_sample = ts[ts_idxs[:N_TEST], :]
+    ts_sample = ts[ts_idxs[N_TEST:], :]
 
     # Create DNR
     layers = ['features:relu2', 'features:relu3', 'features:relu4']
@@ -147,7 +153,7 @@ if __name__ == '__main__':
     rbf_net = CClassifierRBFNetwork(dnn, layers, n_hiddens=n_hiddens,
                                     epochs=100,
                                     batch_size=32,
-                                    validation_data=ts_sample,      # HACK: AVOID DOING THIS! SELECTING ON TEST SET!
+                                    validation_data=vl_sample,
                                     random_state=random_state)
 
     # Initialize prototypes with some training samples
@@ -168,8 +174,11 @@ if __name__ == '__main__':
     acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
     print("RBFNet Accuracy: {}".format(acc))
 
-    # # Set threshold (FPR: 10%)
-    # dnr.threshold = dnr.compute_threshold(0.1, ts_sample)
+    # We can now create a classifier with reject
+    clf_rej = CClassifierRejectThreshold(rbf_net, 0.)
+
+    # Set threshold (FPR: 10%)
+    clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
 
     # Dump to disk
     rbf_net.save('rbf_net')
