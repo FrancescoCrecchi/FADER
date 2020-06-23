@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 from secml.array import CArray
 from secml.ml import CClassifierPyTorch, CClassifier, CNormalizerDNN
@@ -104,6 +105,20 @@ class CClassifierRBFNetwork(CClassifier):
 
         return grad
 
+    @property
+    def prototypes(self):
+        return [CArray(proto) for proto in self._clf.model.prototypes]
+
+    @prototypes.setter
+    def prototypes(self, value):
+        proto_feats = []
+        for l, x in zip(self._layers, value):
+            f_x = self._features_extractors[l].transform(x)
+            proto_feats.append(torch.Tensor(f_x.tondarray()).to(self._clf._device))
+        self._clf.model.prototypes = proto_feats
+
+    # TODO: Expose Betas
+
 
 N_TRAIN, N_TEST = 10000, 1000
 if __name__ == '__main__':
@@ -130,14 +145,23 @@ if __name__ == '__main__':
     layers = ['features:relu2', 'features:relu3', 'features:relu4']
     n_hiddens = [250, 250, 50]
     rbf_net = CClassifierRBFNetwork(dnn, layers, n_hiddens=n_hiddens,
-                                    epochs=3000,
+                                    epochs=100,
                                     batch_size=32,
                                     validation_data=ts_sample,      # HACK: AVOID DOING THIS! SELECTING ON TEST SET!
                                     random_state=random_state)
 
+    # Initialize prototypes with some training samples
+    proto = []
+    for h in n_hiddens:
+        # Select 'h' prototypes from training samples
+        idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
+        proto.append(tr_sample.X[idxs, :])
+    rbf_net.prototypes = proto
+
     # Fit DNR
     rbf_net.verbose = 2  # DEBUG
     rbf_net.fit(tr_sample.X, tr_sample.Y)
+    rbf_net.verbose = 0
 
     # Check test performance
     y_pred = rbf_net.predict(ts.X, return_decision_function=False)

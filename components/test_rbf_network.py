@@ -1,11 +1,9 @@
-import copy
-
 import numpy as np
 import torch
 from secml.array import CArray
-from torch import nn, optim
 from secml.figure import CFigure
 from secml.ml import CClassifierPyTorch, CNormalizerMinMax
+from torch import nn, optim
 
 from components.rbf_network import RBFNetwork
 
@@ -36,7 +34,7 @@ class CClassifierPytorchRBFNetwork(CClassifierPyTorch):
                                             self._validation_data.Y,
                                             batch_size=self._batch_size,
                                             num_workers=self.n_jobs - 1)
-        prototypes = [copy.deepcopy(self.model.prototypes)]
+        prototypes = [self.model.prototypes[0].detach().numpy().copy()]
         for epoch in range(self._epochs):
             train_loss = 0.0
             batches = 0
@@ -57,7 +55,7 @@ class CClassifierPytorchRBFNetwork(CClassifierPyTorch):
             if epoch % 10 == 0:
 
                 # HACK: TRACKING PROTOTYPES
-                prototypes.append(copy.deepcopy(self.model.prototypes))
+                prototypes.append(self.model.prototypes[0].detach().numpy().copy())
 
                 if self._validation_data is not None:
                     # Compute validation performance
@@ -139,7 +137,7 @@ if __name__ == '__main__':
                                        loss=loss,
                                        optimizer=optimizer,
                                        input_shape=(n_feats,),
-                                       epochs=300,
+                                       epochs=30,
                                        batch_size=32,
                                        random_state=random_state)
 
@@ -149,7 +147,7 @@ if __name__ == '__main__':
     clf.verbose = 0
 
     # Track prototypes
-    prototypes = np.dstack([proto[0].detach().numpy() for proto in clf._prototypes]).T   # shape = (n_tracks, n_hiddens, n_feats)
+    prototypes = np.dstack(clf._prototypes).T   # shape = (n_tracks, n_hiddens, n_feats)
     prototypes = [CArray(prototypes[:, :, i]) for i in range(prototypes.shape[2])]
 
     # Test plot
