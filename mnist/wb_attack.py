@@ -3,10 +3,11 @@ from secml.array import CArray
 from secml.ml.classifiers.reject import CClassifierRejectThreshold, CClassifierDNR
 from secml.ml.peval.metrics import CMetricAccuracy
 
+from mnist.rbf_net import CClassifierRejectRBFNet
 from mnist.attack_dnn import security_evaluation
 from mnist.fit_dnn import get_datasets
 
-CLFS = ['tnr', 'tsne_rej']
+CLFS = ['rbf_net']
 # USE_DOUBLE_INIT = True
 
 N_SAMPLES = 100     # TODO: restore full dataset

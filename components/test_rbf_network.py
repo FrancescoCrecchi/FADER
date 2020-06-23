@@ -133,7 +133,11 @@ if __name__ == '__main__':
     dataset.X = nmz.fit_transform(dataset.X)
 
     n_feats = dataset.X.shape[1]
-    n_hiddens = 3
+
+    # HACK: Trying to select 3 prototypes per class
+    N_PROTO_PER_CLASS = 3
+    n_hiddens = N_PROTO_PER_CLASS * dataset.num_classes
+
     n_classes = dataset.num_classes
 
     # Torch fix random seed
@@ -148,11 +152,11 @@ if __name__ == '__main__':
     rbf_net.betas = 10
     rbf_net.train_betas = False
     # HACK: SELECT ONE PROTOTYPE PER CLASS
-    prototypes = CArray.zeros((dataset.num_classes, n_features))
+    prototypes = CArray.zeros((N_PROTO_PER_CLASS * dataset.num_classes, n_features))
     for i in range(dataset.num_classes):
         xi = dataset.X[dataset.Y == i, :]
-        proto = xi[CArray.randsample(xi.shape[0], shape=1).item(), :]
-        prototypes[i, :] = proto
+        proto = xi[CArray.randsample(xi.shape[0], shape=N_PROTO_PER_CLASS), :]
+        prototypes[i*N_PROTO_PER_CLASS:(i+1)*N_PROTO_PER_CLASS, :] = proto
     rbf_net.prototypes = [torch.Tensor(prototypes.tondarray())]
 
     # Loss & Optimizer
@@ -164,6 +168,7 @@ if __name__ == '__main__':
                                        input_shape=(n_feats,),
                                        epochs=30,
                                        batch_size=32,
+                                       track_prototypes=True,
                                        random_state=random_state)
 
     # Fit
@@ -172,8 +177,8 @@ if __name__ == '__main__':
     clf.verbose = 0
 
     # Track prototypes
-    prototypes = np.dstack(clf._prototypes).T   # shape = (n_tracks, n_hiddens, n_feats)
-    prototypes = [CArray(prototypes[:, :, i]) for i in range(prototypes.shape[2])]
+    prototypes = np.array(clf._prototypes).squeeze()   # shape = (n_tracks, n_hiddens, n_feats)
+    prototypes = [CArray(prototypes[:, i, :]) for i in range(prototypes.shape[1])]
 
     # Test plot
     fig = CFigure()

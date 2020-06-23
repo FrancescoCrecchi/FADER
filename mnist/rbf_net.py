@@ -121,7 +121,18 @@ class CClassifierRBFNetwork(CClassifier):
             proto_feats.append(torch.Tensor(f_x.tondarray()).to(self._clf._device))
         self._clf.model.prototypes = proto_feats
 
+    @property
+    def _grad_requires_forward(self):
+        return True
+
     # TODO: Expose Betas
+
+
+class CClassifierRejectRBFNet(CClassifierRejectThreshold):
+
+    @property
+    def _grad_requires_forward(self):
+        return True
 
 
 N_TRAIN, N_TEST = 10000, 1000
@@ -175,10 +186,10 @@ if __name__ == '__main__':
     print("RBFNet Accuracy: {}".format(acc))
 
     # We can now create a classifier with reject
-    clf_rej = CClassifierRejectThreshold(rbf_net, 0.)
+    clf_rej = CClassifierRejectRBFNet(rbf_net, 0.)
 
     # Set threshold (FPR: 10%)
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
 
     # Dump to disk
-    rbf_net.save('rbf_net')
+    clf_rej.save('rbf_net')
