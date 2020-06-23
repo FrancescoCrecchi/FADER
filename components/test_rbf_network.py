@@ -12,12 +12,13 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
 
     def __init__(self, model, loss=None, optimizer=None, optimizer_scheduler=None, pretrained=False,
                  pretrained_classes=None, input_shape=None, random_state=None, preprocess=None, softmax_outputs=False,
-                 epochs=10, batch_size=1, n_jobs=1, transform_train=None, validation_data=None, track_prototypes=False):
+                 epochs=10, batch_size=1, n_jobs=1, transform_train=None, validation_data=None, track_prototypes=False, sigma=1.0):
         super().__init__(model, loss, optimizer, optimizer_scheduler, pretrained, pretrained_classes, input_shape,
                          random_state, preprocess, softmax_outputs, epochs, batch_size, n_jobs, transform_train,
                          validation_data)
         # Internals
         self._track_prototypes = track_prototypes
+        self._sigma = sigma
 
     @property
     def track_prototypes(self):
@@ -64,9 +65,14 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                 inputs, labels = data
                 inputs = inputs.to(self._device)
                 labels = labels.to(self._device)
+                # HACK: REGULARIZATION REQUIRES INPUT GRADIENT
+                inputs.requires_grad = True
                 self._optimizer.zero_grad()
                 outputs = self._model(inputs)
                 loss = self._loss(outputs, labels)
+                loss.backward(retain_graph=True)
+                loss += self._sigma * inputs.grad.norm(2, 1).mean()
+                self._optimizer.zero_grad()
                 loss.backward()
                 self._optimizer.step()
                 # accumulate (Simple Moving Average)
@@ -151,7 +157,7 @@ if __name__ == '__main__':
     # HACK: FIXING BETA
     rbf_net.betas = 10
     rbf_net.train_betas = False
-    # HACK: SELECT ONE PROTOTYPE PER CLASS
+    # HACK: SETTING PROTOTYPES
     prototypes = CArray.zeros((N_PROTO_PER_CLASS * dataset.num_classes, n_features))
     for i in range(dataset.num_classes):
         xi = dataset.X[dataset.Y == i, :]
@@ -169,6 +175,7 @@ if __name__ == '__main__':
                                        epochs=30,
                                        batch_size=32,
                                        track_prototypes=True,
+                                       sigma=2.0,
                                        random_state=random_state)
 
     # Fit

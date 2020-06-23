@@ -12,7 +12,7 @@ from mnist.cnn_mnist import cnn_mnist_model
 from mnist.fit_dnn import get_datasets
 
 
-def rbf_network(dnn, layers, n_hiddens=100, epochs=300, batch_size=32, validation_data=None, random_state=None):
+def rbf_network(dnn, layers, n_hiddens=100, epochs=300, batch_size=32, validation_data=None, sigma=1.0, random_state=None):
     # Use CUDA
     use_cuda = torch.cuda.is_available()
     if random_state is not None:
@@ -35,6 +35,7 @@ def rbf_network(dnn, layers, n_hiddens=100, epochs=300, batch_size=32, validatio
                                         batch_size=batch_size,
                                         validation_data=validation_data,
                                         track_prototypes=True,      # DEBUG: PROTOTYPES TRACKING ENABLED
+                                        sigma=sigma,
                                         random_state=random_state)
 
 
@@ -43,9 +44,10 @@ class CClassifierRBFNetwork(CClassifier):
     def __init__(self, dnn, layers, n_hiddens=100,
                  epochs=300, batch_size=32,
                  validation_data=None,
+                 sigma=1.0,
                  random_state=None):
         # RBF Network
-        self._clf = rbf_network(dnn, layers, n_hiddens, epochs, batch_size, validation_data, random_state)
+        self._clf = rbf_network(dnn, layers, n_hiddens, epochs, batch_size, validation_data, sigma, random_state)
         super(CClassifierRBFNetwork, self).__init__()
 
         # TODO: Parameter Checking
@@ -165,6 +167,7 @@ if __name__ == '__main__':
                                     epochs=100,
                                     batch_size=32,
                                     validation_data=vl_sample,
+                                    sigma=2.0,              # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
                                     random_state=random_state)
 
     # Initialize prototypes with some training samples
