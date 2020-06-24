@@ -64,7 +64,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
 
         # HACK: TRACKING PROTOTYPES
         if self.track_prototypes:
-            prototypes = [[p.copy() for p in self.model.prototypes]]
+            prototypes = [[p.copy() for p in self.model.rbfnet.prototypes]]
 
         for epoch in range(self._epochs):
             train_loss = 0.0
@@ -91,7 +91,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
 
                 # HACK: TRACKING PROTOTYPES
                 if self.track_prototypes:
-                    prototypes.append([p.copy() for p in self.model.prototypes])
+                    prototypes.append([p.copy() for p in self.model.rbfnet.prototypes])
 
                 if self._validation_data is not None:
                     # Compute validation performance

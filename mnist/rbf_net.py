@@ -97,7 +97,7 @@ class RBFNetOnDNN(nn.Module):
         return out
 
 
-class CClassifierRBFNetwork(CClassifierPyTorch):
+class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
 
     def __init__(self, dnn, layers, n_hiddens=100,
                  epochs=300, batch_size=32,
@@ -116,8 +116,8 @@ class CClassifierRBFNetwork(CClassifierPyTorch):
                                                     epochs=epochs,
                                                     batch_size=batch_size,
                                                     validation_data=validation_data,
-                                                    # track_prototypes=True,  # DEBUG: PROTOTYPES TRACKING ENABLED
-                                                    # sigma=sigma,
+                                                    track_prototypes=True,  # DEBUG: PROTOTYPES TRACKING ENABLED
+                                                    sigma=sigma,
                                                     random_state=random_state)
 
         # Internals
@@ -178,10 +178,10 @@ if __name__ == '__main__':
     n_hiddens = [250, 250, 50]
     rbf_net = CClassifierRBFNetwork(dnn, layers,
                                     n_hiddens=n_hiddens,
-                                    epochs=100,       # DEBUG: RESET TO 100! <--------------------
+                                    epochs=100,           # DEBUG: RESTORE 100 EPOCHS! <---------------
                                     batch_size=32,
                                     validation_data=vl_sample,
-                                    sigma=1.0,  # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
+                                    sigma=2.0,  # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
                                     random_state=random_state)
 
     # Initialize prototypes with some training samples
