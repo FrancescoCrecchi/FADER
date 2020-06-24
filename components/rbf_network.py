@@ -17,7 +17,7 @@ class RBFNetwork(nn.Module):
 
         # Check inputs
         # 1. n_features
-        if isinstance(n_features, int):
+        if isinstance(n_features, int) or isinstance(n_features, float):
             n_features = [n_features]
         self.n_features = n_features
         n_layers = len(self.n_features)

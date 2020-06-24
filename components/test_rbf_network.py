@@ -4,8 +4,17 @@ from secml.array import CArray
 from secml.figure import CFigure
 from secml.ml import CClassifierPyTorch, CNormalizerMinMax
 from torch import nn, optim
+from torch.autograd import grad
 
 from components.rbf_network import RBFNetwork
+
+
+def grad_norm(loss, inputs, train=False):
+    bs = inputs.size(0)
+    g = grad(loss, inputs, retain_graph=train)[0] * bs
+    g = g.view(bs, -1)
+    norm = g.norm(2, 1).mean()
+    return norm.item()
 
 
 class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
@@ -62,17 +71,16 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
             batches = 0
             for data in train_loader:
                 batches += 1
+                self._optimizer.zero_grad()
                 inputs, labels = data
                 inputs = inputs.to(self._device)
                 labels = labels.to(self._device)
                 # HACK: REGULARIZATION REQUIRES INPUT GRADIENT
                 inputs.requires_grad = True
-                self._optimizer.zero_grad()
                 outputs = self._model(inputs)
                 loss = self._loss(outputs, labels)
-                loss.backward(retain_graph=True)
-                loss += self._sigma * inputs.grad.norm(2, 1).mean()
-                self._optimizer.zero_grad()
+                # DEBUG OBTAINING GRADIENT NORM WRT f(x) NOT WRT x!
+                loss += self._sigma * grad_norm(loss, inputs, True)
                 loss.backward()
                 self._optimizer.step()
                 # accumulate (Simple Moving Average)
