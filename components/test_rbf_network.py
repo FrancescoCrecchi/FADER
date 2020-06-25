@@ -21,7 +21,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
 
     def __init__(self, model, loss=None, optimizer=None, optimizer_scheduler=None, pretrained=False,
                  pretrained_classes=None, input_shape=None, random_state=None, preprocess=None, softmax_outputs=False,
-                 epochs=10, batch_size=1, n_jobs=1, transform_train=None, validation_data=None, track_prototypes=False, sigma=1.0):
+                 epochs=10, batch_size=1, n_jobs=1, transform_train=None, validation_data=None, track_prototypes=False, sigma=0.):
         super().__init__(model, loss, optimizer, optimizer_scheduler, pretrained, pretrained_classes, input_shape,
                          random_state, preprocess, softmax_outputs, epochs, batch_size, n_jobs, transform_train,
                          validation_data)
@@ -64,7 +64,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
 
         # HACK: TRACKING PROTOTYPES
         if self.track_prototypes:
-            prototypes = [[p.copy() for p in self.model.rbfnet.prototypes]]
+            prototypes = [[p.detach().numpy().copy() for p in self.model.prototypes]]
 
         for epoch in range(self._epochs):
             train_loss = 0.0
@@ -79,7 +79,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                 inputs.requires_grad = True
                 outputs = self._model(inputs)
                 loss = self._loss(outputs, labels)
-                # DEBUG OBTAINING GRADIENT NORM WRT f(x) NOT WRT x!
+                # HACK: GRAD NORM REGULARIZATION HERE!
                 loss += self._sigma * grad_norm(loss, inputs, True)
                 loss.backward()
                 self._optimizer.step()
@@ -91,7 +91,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
 
                 # HACK: TRACKING PROTOTYPES
                 if self.track_prototypes:
-                    prototypes.append([p.copy() for p in self.model.rbfnet.prototypes])
+                    prototypes.append([p.detach().numpy().copy() for p in self.model.prototypes])
 
                 if self._validation_data is not None:
                     # Compute validation performance
@@ -149,9 +149,8 @@ if __name__ == '__main__':
     n_feats = dataset.X.shape[1]
 
     # HACK: Trying to select 3 prototypes per class
-    N_PROTO_PER_CLASS = 3
+    N_PROTO_PER_CLASS = 5
     n_hiddens = N_PROTO_PER_CLASS * dataset.num_classes
-
     n_classes = dataset.num_classes
 
     # Torch fix random seed
