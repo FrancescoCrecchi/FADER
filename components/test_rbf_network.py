@@ -182,7 +182,7 @@ if __name__ == '__main__':
                                        epochs=30,
                                        batch_size=32,
                                        track_prototypes=True,
-                                       sigma=2.0,
+                                       # sigma=2.0,
                                        random_state=random_state)
 
     # Fit

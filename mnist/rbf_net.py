@@ -18,7 +18,7 @@ from mnist.fit_dnn import get_datasets
 
 class RBFNetOnDNN(nn.Module):
 
-    def __init__(self, dnn, layers, input_shape, n_classes, n_hiddens=100):
+    def __init__(self, dnn, layers, input_shape, n_classes, n_hiddens):
         super(RBFNetOnDNN, self).__init__()
         self._layers = layers
         self._n_hiddens = n_hiddens
@@ -43,11 +43,13 @@ class RBFNetOnDNN(nn.Module):
                 i += 1
         # Set combiner ontop
         assert i > 0, "Something wrong in RBFNet layer_clf init!"
-        n_feats = len(self._layers) * n_classes
-        self._combiner = nn.Sequential(OrderedDict([
-            ('batch_norm', nn.BatchNorm1d(n_feats)),
-            ('combiner', RBFNetwork(n_feats, self._n_hiddens[i], n_classes))
-        ]))
+        # n_feats = len(self._layers) * n_classes
+        # self._combiner = nn.Sequential(OrderedDict([
+        #     ('batch_norm', nn.BatchNorm1d(n_feats)),
+        #     ('combiner', RBFNetwork(n_feats, self._n_hiddens[i], n_classes))
+        # ]))
+        n_feats = sum(self._n_hiddens[:-1])
+        self._combiner = nn.Linear(n_feats, self._n_classes)
 
     def _register_hooks(self):
         # ========= Setting hooks =========
@@ -66,13 +68,13 @@ class RBFNetOnDNN(nn.Module):
     def forward(self, x):
         _ = self.dnn(x)  # This sets layer activations
         fx = []
-        i = 0
         for name, layer in get_layers(self.dnn):
             if name in self._layers:
                 activ = self._dnn_activations[layer]
                 fx.append(self._layer_clfs[name](activ.view(activ.shape[0], -1)))
-                i += 1
-        out = self._combiner(torch.cat(fx, 1))
+        fx = torch.cat(fx, 1)
+
+        out = self._combiner(fx)
         return out
 
     def to(self, *args, **kwargs):
@@ -90,6 +92,7 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
                  epochs=300, batch_size=32,
                  validation_data=None,
                  sigma=0.,
+                 track_prototypes=False,
                  random_state=None):
 
         # Param checking
@@ -109,7 +112,7 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
                                                     epochs=epochs,
                                                     batch_size=batch_size,
                                                     validation_data=validation_data,
-                                                    track_prototypes=True,  # DEBUG: PROTOTYPES TRACKING ENABLED
+                                                    track_prototypes=track_prototypes,
                                                     sigma=sigma,
                                                     random_state=random_state)
 
@@ -123,8 +126,8 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
         # Layer clfs prototypes
         for l in self._layers:
             proto['layer_clfs'][l] = self.model._layer_clfs[l].prototypes
-        # Combiner prototypes
-        proto['combiner'] = self.model._combiner.combiner.prototypes
+        # # Combiner prototypes
+        # proto['combiner'] = self.model._combiner.combiner.prototypes
         return proto
 
     @prototypes.setter
@@ -144,7 +147,7 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
         b_mask = torch.zeros(x.shape[0])
         b_mask[idxs.long()] = 1.0
         b_mask = b_mask.bool()
-        x_comb = x[b_mask, :]  # HACK: "IndexError: tensors used as indices must be long, byte or bool tensors"
+        x_comb = x[b_mask, :]
         x = x[~b_mask, :]
 
         # Void run to compute hooks
@@ -157,20 +160,20 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
                 self.model._layer_clfs[name].prototypes = [activ.view(activ.shape[0], -1)]
                 i += 1
 
-        # Run dnn on them
-        _ = self.model.dnn.forward(x_comb)
-        # Pack activations
-        fx = []
-        i = 0
-        for name, layer in get_layers(self.model.dnn):
-            if name in self._layers:
-                activ = self.model._dnn_activations[layer][:self._n_hiddens[i]]
-                out = self.model._layer_clfs[name](activ.view(activ.shape[0], -1))
-                fx.append(out)
-                i += 1
+        # # Run dnn on them
+        # _ = self.model.dnn.forward(x_comb)
+        # # Pack activations
+        # fx = []
+        # i = 0
+        # for name, layer in get_layers(self.model.dnn):
+        #     if name in self._layers:
+        #         activ = self.model._dnn_activations[layer][:self._n_hiddens[i]]
+        #         out = self.model._layer_clfs[name](activ.view(activ.shape[0], -1))
+        #         fx.append(out)
+        #         i += 1
+        # fx = torch.cat(fx, 1)
+        # self.model._combiner.combiner.prototypes = [fx]
 
-        fx = torch.cat(fx, 1)
-        self.model._combiner.combiner.prototypes = [fx]
     # TODO: Expose Betas
 
 
@@ -200,7 +203,6 @@ if __name__ == '__main__':
     # Create DNR
     layers = ['features:relu2', 'features:relu3', 'features:relu4']
     n_hiddens = [250, 250, 50, 10]
-    # TODO: RESTORE CClassifeirPyTorchRBFNet! <<============ !!!!
     rbf_net = CClassifierRBFNetwork(dnn, layers,
                                     n_hiddens=n_hiddens,
                                     epochs=100,
@@ -209,11 +211,11 @@ if __name__ == '__main__':
                                     # sigma=1.0,  # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
                                     random_state=random_state)
 
-    # Initialize prototypes with some training samples
-    h = max(n_hiddens[:-1]) + n_hiddens[-1]       # HACK: "Nel piu' ci sta il meno..."
-    idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
-    proto = tr_sample.X[idxs, :]
-    rbf_net.prototypes = proto
+    # # Initialize prototypes with some training samples
+    # h = max(n_hiddens[:-1]) + n_hiddens[-1]       # HACK: "Nel piu' ci sta il meno..."
+    # idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
+    # proto = tr_sample.X[idxs, :]
+    # rbf_net.prototypes = proto
 
     # Fit DNR
     rbf_net.verbose = 2  # DEBUG
@@ -225,11 +227,11 @@ if __name__ == '__main__':
     acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
     print("RBFNet Accuracy: {}".format(acc))
 
-    # We can now create a classifier with reject
-    clf_rej = CClassifierRejectThreshold(rbf_net, 0.)
-
-    # Set threshold (FPR: 10%)
-    clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
-
-    # Dump to disk
-    clf_rej.save('rbf_net')
+    # # We can now create a classifier with reject
+    # clf_rej = CClassifierRejectThreshold(rbf_net, 0.)
+    #
+    # # Set threshold (FPR: 10%)
+    # clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
+    #
+    # # Dump to disk
+    # clf_rej.save('rbf_net')

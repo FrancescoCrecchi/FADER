@@ -27,9 +27,9 @@ if __name__ == '__main__':
 
     # Fit DNN
     dnn = cnn_mnist_model()
-    dnn.verbose = 1  # Can be used to display training process output
 
     print("Training started...")
+    dnn.verbose = 1  # Can be used to display training process output
     dnn.fit(tr.X, tr.Y)
     dnn.verbose = 0
     print("Training completed!")

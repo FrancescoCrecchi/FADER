@@ -35,7 +35,8 @@ class RBFNetwork(nn.Module):
         # Make layers
         for i in range(n_layers):
             self.rbf_layers.append(rbf.RBF(n_features[i], n_hiddens[i], rbf.gaussian))
-            self.classifier = nn.Linear(sum(n_hiddens), n_classes)
+        # self.classifier = nn.Linear(sum(n_hiddens), n_classes)
+        self.classifier = nn.Identity()     # DEBUG: RESTORE HERE(!)
 
         # Flags
         self._train_betas = True

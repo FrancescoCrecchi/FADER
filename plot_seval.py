@@ -5,10 +5,10 @@ from secml.array import CArray
 from secml.figure import CFigure
 from secml.ml.peval.metrics import CMetricAccuracyReject, CMetricAccuracy
 
-DSET = 'cifar10'
-EVAL_TYPE = 'bb'
-CLFS = ['dnn', 'nr', 'dnr'] #, 'tsne_rej', 'tnr']
-FNAME = 'all_'+EVAL_TYPE+'_seval' # 'tsne_rej_test_gamma'
+DSET = 'mnist'
+EVAL_TYPE = 'wb'
+CLFS = ['dnn', 'nr', 'dnr', 'rbf_net'] #,'tsne_rej', 'tnr']
+FNAME = 'all_'+EVAL_TYPE+'_seval_sigma_2' # 'tsne_rej_test_gamma'
 
 
 def compute_performance(seval_data):
