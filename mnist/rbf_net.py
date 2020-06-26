@@ -34,22 +34,22 @@ class RBFNetOnDNN(nn.Module):
         self._layer_clfs = {}
         # In order to instantiate correctly the RBF module we need to compute the input size
         # we can do this by running a fake sample through the input and looking to the activations sizes
-        _ = self.dnn(torch.rand(tuple([1] + list(input_shape))).to('cuda'))
+        _ = self.dnn(torch.rand(tuple([1] + list(input_shape)))) #DEBUG: .to('cuda'))
         i = 0
         for name, layer in get_layers(self.dnn):
             if name in self._layers:
                 n_feats = np.prod(self._dnn_activations[layer].shape[1:]).item()
-                self._layer_clfs[name] = RBFNetwork(n_feats, self._n_hiddens[i], n_classes)
+                self._layer_clfs[name] = RBFNetwork(n_feats, self._n_hiddens[i], 1) # DEBUG: n_classes
                 i += 1
         # Set combiner ontop
         assert i > 0, "Something wrong in RBFNet layer_clf init!"
-        # n_feats = len(self._layers) * n_classes
-        # self._combiner = nn.Sequential(OrderedDict([
-        #     ('batch_norm', nn.BatchNorm1d(n_feats)),
-        #     ('combiner', RBFNetwork(n_feats, self._n_hiddens[i], n_classes))
-        # ]))
-        n_feats = sum(self._n_hiddens[:-1])
-        self._combiner = nn.Linear(n_feats, self._n_classes)
+        n_feats = len(self._layers)                             # DEBUG: * n_classes
+        self._combiner = nn.Sequential(OrderedDict([
+            ('batch_norm', nn.BatchNorm1d(n_feats)),
+            ('combiner', RBFNetwork(n_feats, self._n_hiddens[i], n_classes))
+        ]))
+        # n_feats = sum(self._n_hiddens[:-1])
+        # self._combiner = nn.Linear(n_feats, self._n_classes)
 
     def _register_hooks(self):
         # ========= Setting hooks =========
@@ -125,9 +125,9 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
         proto = {'layer_clfs': {}}
         # Layer clfs prototypes
         for l in self._layers:
-            proto['layer_clfs'][l] = self.model._layer_clfs[l].prototypes
-        # # Combiner prototypes
-        # proto['combiner'] = self.model._combiner.combiner.prototypes
+            proto['layer_clfs'][l] = self.model._layer_clfs[l].prototypes[0].clone().detach().numpy()
+        # Combiner prototypes
+        proto['combiner'] = self.model._combiner.combiner.prototypes[0].clone().detach().numpy()
         return proto
 
     @prototypes.setter
@@ -143,7 +143,7 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
         x = torch.Tensor(x.tondarray().reshape(-1, *self.input_shape)).float().to(self._device)
 
         # Hold-out 'n_hiddens[-1]' samples at random to avoid combiner overfitting
-        idxs = torch.Tensor(CArray.randsample(x.shape[0], self._n_hiddens[-1], random_state=random_state).tondarray())
+        idxs = torch.Tensor(CArray.randsample(x.shape[0], self._n_hiddens[-1], random_state=self._random_state).tondarray())
         b_mask = torch.zeros(x.shape[0])
         b_mask[idxs.long()] = 1.0
         b_mask = b_mask.bool()
@@ -160,19 +160,19 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
                 self.model._layer_clfs[name].prototypes = [activ.view(activ.shape[0], -1)]
                 i += 1
 
-        # # Run dnn on them
-        # _ = self.model.dnn.forward(x_comb)
-        # # Pack activations
-        # fx = []
-        # i = 0
-        # for name, layer in get_layers(self.model.dnn):
-        #     if name in self._layers:
-        #         activ = self.model._dnn_activations[layer][:self._n_hiddens[i]]
-        #         out = self.model._layer_clfs[name](activ.view(activ.shape[0], -1))
-        #         fx.append(out)
-        #         i += 1
-        # fx = torch.cat(fx, 1)
-        # self.model._combiner.combiner.prototypes = [fx]
+        # Run dnn on them
+        _ = self.model.dnn.forward(x_comb)
+        # Pack activations
+        fx = []
+        i = 0
+        for name, layer in get_layers(self.model.dnn):
+            if name in self._layers:
+                activ = self.model._dnn_activations[layer][:self._n_hiddens[i]]
+                out = self.model._layer_clfs[name](activ.view(activ.shape[0], -1))
+                fx.append(out)
+                i += 1
+        fx = torch.cat(fx, 1)
+        self.model._combiner.combiner.prototypes = [fx]
 
     # TODO: Expose Betas
 
