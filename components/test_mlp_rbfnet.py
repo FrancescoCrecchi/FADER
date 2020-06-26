@@ -40,7 +40,7 @@ if __name__ == '__main__':
     layers = ['relu2', 'relu3']
     clf = CClassifierRBFNetwork(mlp, layers,
                                 n_hiddens,
-                                epochs=150,
+                                epochs=150,       # DEBUG: RESTORE TO 150 HERE!
                                 validation_data=ts,
                                 track_prototypes=True,
                                 random_state=seed)
@@ -75,37 +75,36 @@ if __name__ == '__main__':
 
     fig = CFigure()
 
-    # class CClassifierIdentity(CClassifier):
-    #
-    #     def _fit(self, x, y):
-    #         pass
-    #
-    #     def _check_is_fitted(self):
-    #         return True
-    #
-    #     def _forward(self, x):
-    #         return x
-    #
-    #     def _backward(self, w):
-    #         pass
-    #
-    # pre_comb_clf = CClassifierIdentity(preprocess=CNormalizerDNN(clf, "_combiner:batch_norm"))
-    # pre_comb_clf._classes = clf._classes
-    # fig.sp.plot_decision_regions(pre_comb_clf, n_grid_points=100, grid_limits=[(-4,4), (-4,4)])
-    # fig.show()
+    class CClassifierIdentity(CClassifier):
+
+        def _fit(self, x, y):
+            pass
+
+        def _check_is_fitted(self):
+            return True
+
+        def _forward(self, x):
+            return x
+
+        def _backward(self, w):
+            pass
+
+    pre_comb_clf = CClassifierIdentity(preprocess=CNormalizerDNN(clf, "_combiner:batch_norm"))
+    pre_comb_clf._classes = clf._classes
+    fig.sp.plot_decision_regions(pre_comb_clf, n_grid_points=200, grid_limits=[(-2.5, 2.5), (-2.5, 2.5)])
 
     # Register hook
-    inputs = {}
+    activations = {}
     def get_activation(name):
         def hook(model, input, output):
-            inputs[name] = input[0].detach().numpy()
+            activations[name] = output.detach().numpy()
         return hook
-    clf.model._combiner.combiner.register_forward_hook(get_activation('combiner'))
+    clf.model._combiner.batch_norm.register_forward_hook(get_activation('combiner'))
     # Void Fwd pass
     clf._batch_size = ts.X.shape[0] # HACK: Setting 'batch_size' to dset shape
     _ = clf.forward(ts.X)
     # Retrieve inputs to create new combiner input features dataset
-    fx_dset = CDataset(CArray(inputs['combiner']), ts.Y)
+    fx_dset = CDataset(CArray(activations['combiner']), ts.Y)
     fig.sp.plot_ds(fx_dset)
     # fig.sp.plot_ds(ts)
 

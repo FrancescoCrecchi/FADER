@@ -16,6 +16,16 @@ from mnist.cnn_mnist import cnn_mnist_model
 from mnist.fit_dnn import get_datasets
 
 
+class Concatenate(nn.Module):
+
+    def __init__(self):
+        super(Concatenate, self).__init__()
+
+    def forward(self, iterable, axis):
+        x = torch.cat(iterable, axis)
+        return x
+
+
 class RBFNetOnDNN(nn.Module):
 
     def __init__(self, dnn, layers, input_shape, n_classes, n_hiddens):
@@ -31,7 +41,7 @@ class RBFNetOnDNN(nn.Module):
         self._register_hooks()
         # RBFNet
         # Setting layer_clfs
-        self._layer_clfs = {}
+        self._layer_clfs = nn.ModuleDict()
         # In order to instantiate correctly the RBF module we need to compute the input size
         # we can do this by running a fake sample through the input and looking to the activations sizes
         _ = self.dnn(torch.rand(tuple([1] + list(input_shape)))) #DEBUG: .to('cuda'))
@@ -41,6 +51,7 @@ class RBFNetOnDNN(nn.Module):
                 n_feats = np.prod(self._dnn_activations[layer].shape[1:]).item()
                 self._layer_clfs[name] = RBFNetwork(n_feats, self._n_hiddens[i], 1) # DEBUG: n_classes
                 i += 1
+        self._merge = Concatenate()
         # Set combiner ontop
         assert i > 0, "Something wrong in RBFNet layer_clf init!"
         n_feats = len(self._layers)                             # DEBUG: * n_classes
@@ -72,18 +83,17 @@ class RBFNetOnDNN(nn.Module):
             if name in self._layers:
                 activ = self._dnn_activations[layer]
                 fx.append(self._layer_clfs[name](activ.view(activ.shape[0], -1)))
-        fx = torch.cat(fx, 1)
-
+        fx = self._merge(fx, 1)
         out = self._combiner(fx)
         return out
 
-    def to(self, *args, **kwargs):
-        self = super().to(*args, **kwargs)
-        self.dnn = self.dnn.to(*args, **kwargs)
-        for l in self._layers:
-            self._layer_clfs[l] = self._layer_clfs[l].to(*args, **kwargs)
-        self._combiner = self._combiner.to(*args, **kwargs)
-        return self
+    # def to(self, *args, **kwargs):
+    #     self = super().to(*args, **kwargs)
+    #     self.dnn = self.dnn.to(*args, **kwargs)
+    #     for l in self._layers:
+    #         self._layer_clfs[l] = self._layer_clfs[l].to(*args, **kwargs)
+    #     self._combiner = self._combiner.to(*args, **kwargs)
+    #     return self
 
 
 class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
