@@ -6,7 +6,10 @@ from secml.ml import CNormalizerMinMax, CClassifier, CNormalizerDNN
 from secml.ml.peval.metrics import CMetricAccuracy
 
 from components.torch_nn import MLPytorch
-from mnist.rbf_net import CClassifierRBFNetwork
+from mnist.deep_rbf_net import CClassifierDeepRBFNetwork
+
+
+SIGMA = 0.0     # REGULARIZATION KNOB
 
 if __name__ == '__main__':
     seed = 999
@@ -38,15 +41,15 @@ if __name__ == '__main__':
     # Create a deep detector for 'dnn'
     n_hiddens = [20, 20, 20]
     layers = ['relu2', 'relu3']
-    clf = CClassifierRBFNetwork(mlp, layers,
-                                n_hiddens,
-                                epochs=150,       # DEBUG: RESTORE TO 150 HERE!
-                                # batch_size=128,
-                                # lr=1e-4,
-                                validation_data=ts,
-                                sigma=2.0,
-                                track_prototypes=False,
-                                random_state=seed)
+    clf = CClassifierDeepRBFNetwork(mlp, layers,
+                                    n_hiddens,
+                                    epochs=150,  # DEBUG: RESTORE TO 150 HERE!
+                                    # batch_size=128,
+                                    # lr=1e-4,
+                                    validation_data=ts,
+                                    sigma=SIGMA,
+                                    track_prototypes=False,
+                                    random_state=seed)
 
     # Initialize prototypes with some training samples
     h = max(n_hiddens[:-1]) + n_hiddens[-1]       # HACK: "Nel piu' ci sta il meno..."

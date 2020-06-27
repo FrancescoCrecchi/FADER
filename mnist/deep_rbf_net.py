@@ -1,13 +1,14 @@
 import numpy as np
 import torch
 from torch import nn, optim
+
 from secml.array import CArray
-from secml.ml.classifiers.reject import CClassifierRejectThreshold
 from secml.ml.classifiers.pytorch.c_classifier_pytorch import get_layers
+from secml.ml.classifiers.reject import CClassifierRejectThreshold
 from secml.ml.peval.metrics import CMetricAccuracy
 
 from components.rbf_network import RBFNetwork
-from components.test_rbf_network import CClassifierPyTorchRBFNetwork
+from components.c_classifier_pytorch_rbf_network import CClassifierPyTorchRBFNetwork
 
 from mnist.cnn_mnist import cnn_mnist_model
 from mnist.fit_dnn import get_datasets
@@ -23,10 +24,10 @@ class Concatenate(nn.Module):
         return x
 
 
-class RBFNetOnDNN(nn.Module):
+class DeepRBFNetOnDNN(nn.Module):
 
     def __init__(self, dnn, layers, input_shape, n_classes, n_hiddens):
-        super(RBFNetOnDNN, self).__init__()
+        super(DeepRBFNetOnDNN, self).__init__()
         self._layers = layers
         self._n_hiddens = n_hiddens
         self._n_classes = n_classes
@@ -95,7 +96,7 @@ class RBFNetOnDNN(nn.Module):
     #     return self
 
 
-class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
+class CClassifierDeepRBFNetwork(CClassifierPyTorchRBFNetwork):
 
     def __init__(self, dnn, layers, n_hiddens=100,
                  epochs=300, batch_size=32,
@@ -110,21 +111,21 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
             n_hiddens = [n_hiddens] * (len(layers) + 1)  # Taking care of the combiner..
         self._n_hiddens = n_hiddens
 
-        # RBFNetOnDNN (TODO: pass other params)
-        model = RBFNetOnDNN(dnn.model, layers, dnn.input_shape, dnn.n_classes, self._n_hiddens)
+        # DeepRBFNetOnDNN (TODO: pass other params)
+        model = DeepRBFNetOnDNN(dnn.model, layers, dnn.input_shape, dnn.n_classes, self._n_hiddens)
         # Loss & Optimizer
         loss = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=lr)  # --> TODO: Expose optimizer params <--
-        super(CClassifierRBFNetwork, self).__init__(model,
-                                                    loss=loss,
-                                                    optimizer=optimizer,
-                                                    input_shape=dnn.input_shape,
-                                                    epochs=epochs,
-                                                    batch_size=batch_size,
-                                                    validation_data=validation_data,
-                                                    track_prototypes=track_prototypes,
-                                                    sigma=sigma,
-                                                    random_state=random_state)
+        super(CClassifierDeepRBFNetwork, self).__init__(model,
+                                                        loss=loss,
+                                                        optimizer=optimizer,
+                                                        input_shape=dnn.input_shape,
+                                                        epochs=epochs,
+                                                        batch_size=batch_size,
+                                                        validation_data=validation_data,
+                                                        track_prototypes=track_prototypes,
+                                                        sigma=sigma,
+                                                        random_state=random_state)
 
         # Internals
         self._layers = layers
@@ -143,7 +144,7 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
     @prototypes.setter
     def prototypes(self, x):
         '''
-        Set 'RBFNetOnDNN' layer_clfs and combiner prototypes (same Xs for all)
+        Set 'DeepRBFNetOnDNN' layer_clfs and combiner prototypes (same Xs for all)
         :param value: Input prototypes vectors
         '''
         # Move model to 'device'
@@ -215,13 +216,13 @@ if __name__ == '__main__':
     # Create DNR
     layers = ['features:relu2', 'features:relu3', 'features:relu4']
     n_hiddens = [250, 250, 50, 10]
-    rbf_net = CClassifierRBFNetwork(dnn, layers,
-                                    n_hiddens=n_hiddens,
-                                    epochs=150,
-                                    batch_size=32,
-                                    validation_data=vl_sample,
-                                    sigma=SIGMA,  # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
-                                    random_state=random_state)
+    rbf_net = CClassifierDeepRBFNetwork(dnn, layers,
+                                        n_hiddens=n_hiddens,
+                                        epochs=150,
+                                        batch_size=32,
+                                        validation_data=vl_sample,
+                                        sigma=SIGMA,  # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
+                                        random_state=random_state)
 
     # Initialize prototypes with some training samples
     h = max(n_hiddens[:-1]) + n_hiddens[-1]       # HACK: "Nel piu' ci sta il meno..."
@@ -246,4 +247,4 @@ if __name__ == '__main__':
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
 
     # Dump to disk
-    clf_rej.save('deep_rbf_net_sigma_{}'.format(SIGMA))
+    # clf_rej.save('deep_rbf_net_sigma_{}'.format(SIGMA))

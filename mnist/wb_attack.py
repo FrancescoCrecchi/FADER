@@ -4,7 +4,7 @@ from secml.array import CArray
 from secml.ml.classifiers.reject import CClassifierRejectThreshold, CClassifierDNR
 from secml.ml.peval.metrics import CMetricAccuracy
 
-from mnist.rbf_net import CClassifierRBFNetwork, RBFNetOnDNN
+from mnist.deep_rbf_net import CClassifierDeepRBFNetwork, DeepRBFNetOnDNN
 from mnist.attack_dnn import security_evaluation
 from mnist.fit_dnn import get_datasets
 

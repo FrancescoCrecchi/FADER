@@ -6,10 +6,11 @@ from secml.ml.peval.metrics import CMetricAccuracy
 from torch import nn, optim
 
 from components.rbf_network import RBFNetwork
-from components.test_rbf_network import CClassifierPyTorchRBFNetwork
+from components.c_classifier_pytorch_rbf_network import CClassifierPyTorchRBFNetwork
 from mnist.cnn_mnist import cnn_mnist_model
 from mnist.fit_dnn import get_datasets
-from mnist.rbf_net import rbf_network
+from mnist.deep_rbf_net import rbf_network
+# TODO: FIX THIS (IN CASE): OLDER VERSION OF 'mnist/rbf_net.py' CONTAINS 'rbf_network' CODE.
 
 
 class CClassifierDNRBF(CClassifierDNR):
