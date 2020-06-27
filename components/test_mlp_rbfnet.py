@@ -75,39 +75,42 @@ if __name__ == '__main__':
 
     fig = CFigure()
 
-    class CClassifierIdentity(CClassifier):
-
-        def _fit(self, x, y):
-            pass
-
-        def _check_is_fitted(self):
-            return True
-
-        def _forward(self, x):
-            return x
-
-        def _backward(self, w):
-            pass
-
-    pre_comb_clf = CClassifierIdentity(preprocess=CNormalizerDNN(clf, "_combiner:batch_norm"))
-    pre_comb_clf._classes = clf._classes
-    fig.sp.plot_decision_regions(pre_comb_clf, n_grid_points=200, grid_limits=[(-2.5, 2.5), (-2.5, 2.5)])
+    # class CClassifierIdentity(CClassifier):
+    #
+    #     def _fit(self, x, y):
+    #         pass
+    #
+    #     def _check_is_fitted(self):
+    #         return True
+    #
+    #     def _forward(self, x):
+    #         return x
+    #
+    #     def _backward(self, w):
+    #         pass
+    #
+    # pre_comb_clf = CClassifierIdentity(preprocess=CNormalizerDNN(clf, "_merge"))
+    # pre_comb_clf._classes = clf._classes
+    # fig.sp.plot_decision_regions(pre_comb_clf, n_grid_points=50, grid_limits=[(-2.5, 2.5), (-2.5, 2.5)])
+    # HACK: Setting 'out_layer' for CClassifierPyTorch
+    clf._out_layer = '_merge'
+    fig.sp.plot_decision_regions(clf, n_grid_points=50, grid_limits=[(-2.5, 2.5), (-2.5, 2.5)])
+    clf._out_layer = None
 
     # Register hook
-    activations = {}
-    def get_activation(name):
-        def hook(model, input, output):
-            activations[name] = output.detach().numpy()
-        return hook
-    clf.model._combiner.batch_norm.register_forward_hook(get_activation('combiner'))
+    activations = None
+    def get_activations(model, input, output):
+        global activations
+        activations = output.detach().numpy()
+
+    clf.model._merge.register_forward_hook(get_activations)
     # Void Fwd pass
     clf._batch_size = ts.X.shape[0] # HACK: Setting 'batch_size' to dset shape
     _ = clf.forward(ts.X)
     # Retrieve inputs to create new combiner input features dataset
-    fx_dset = CDataset(CArray(activations['combiner']), ts.Y)
+    fx_dset = CDataset(CArray(activations), ts.Y)
     fig.sp.plot_ds(fx_dset)
     # fig.sp.plot_ds(ts)
-
 
     # Plot prototypes
     for proto in prototypes:

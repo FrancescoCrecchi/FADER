@@ -87,7 +87,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                 train_loss += (1 / batches) * (loss.item() - train_loss)
 
             # print statistics
-            if epoch % 10 == 0:
+            if epoch % 1 == 0:      # TODO: RESTORE to 10
 
                 # HACK: TRACKING PROTOTYPES
                 if self.track_prototypes:

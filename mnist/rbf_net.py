@@ -44,7 +44,8 @@ class RBFNetOnDNN(nn.Module):
         self._layer_clfs = nn.ModuleDict()
         # In order to instantiate correctly the RBF module we need to compute the input size
         # we can do this by running a fake sample through the input and looking to the activations sizes
-        _ = self.dnn(torch.rand(tuple([1] + list(input_shape)))) #DEBUG: .to('cuda'))
+        dnn_device = next(self.dnn.parameters()).device
+        _ = self.dnn(torch.rand(tuple([1] + list(input_shape))).to(dnn_device))
         i = 0
         for name, layer in get_layers(self.dnn):
             if name in self._layers:
@@ -55,10 +56,11 @@ class RBFNetOnDNN(nn.Module):
         # Set combiner ontop
         assert i > 0, "Something wrong in RBFNet layer_clf init!"
         n_feats = len(self._layers)                             # DEBUG: * n_classes
-        self._combiner = nn.Sequential(OrderedDict([
-            ('batch_norm', nn.BatchNorm1d(n_feats)),
-            ('combiner', RBFNetwork(n_feats, self._n_hiddens[i], n_classes))
-        ]))
+        self._combiner = RBFNetwork(n_feats, self._n_hiddens[i], n_classes)
+        # self._combiner = nn.Sequential(OrderedDict([
+        #     ('batch_norm', nn.BatchNorm1d(n_feats)),
+        #     ('combiner', RBFNetwork(n_feats, self._n_hiddens[i], n_classes))
+        # ]))
         # n_feats = sum(self._n_hiddens[:-1])
         # self._combiner = nn.Linear(n_feats, self._n_classes)
 
@@ -137,7 +139,7 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
         for l in self._layers:
             proto['layer_clfs'][l] = self.model._layer_clfs[l].prototypes[0].clone().detach().numpy()
         # Combiner prototypes
-        proto['combiner'] = self.model._combiner.combiner.prototypes[0].clone().detach().numpy()
+        proto['combiner'] = self.model._combiner.prototypes[0].clone().detach().numpy()
         return proto
 
     @prototypes.setter
@@ -182,7 +184,7 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
                 fx.append(out)
                 i += 1
         fx = torch.cat(fx, 1)
-        self.model._combiner.combiner.prototypes = [fx]
+        self.model._combiner.prototypes = [fx]
 
     # TODO: Expose Betas
 
@@ -215,17 +217,17 @@ if __name__ == '__main__':
     n_hiddens = [250, 250, 50, 10]
     rbf_net = CClassifierRBFNetwork(dnn, layers,
                                     n_hiddens=n_hiddens,
-                                    epochs=100,
+                                    epochs=40,
                                     batch_size=32,
                                     validation_data=vl_sample,
                                     # sigma=1.0,  # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
                                     random_state=random_state)
 
-    # # Initialize prototypes with some training samples
-    # h = max(n_hiddens[:-1]) + n_hiddens[-1]       # HACK: "Nel piu' ci sta il meno..."
-    # idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
-    # proto = tr_sample.X[idxs, :]
-    # rbf_net.prototypes = proto
+    # Initialize prototypes with some training samples
+    h = max(n_hiddens[:-1]) + n_hiddens[-1]       # HACK: "Nel piu' ci sta il meno..."
+    idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
+    proto = tr_sample.X[idxs, :]
+    rbf_net.prototypes = proto
 
     # Fit DNR
     rbf_net.verbose = 2  # DEBUG
@@ -237,11 +239,11 @@ if __name__ == '__main__':
     acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
     print("RBFNet Accuracy: {}".format(acc))
 
-    # # We can now create a classifier with reject
-    # clf_rej = CClassifierRejectThreshold(rbf_net, 0.)
-    #
-    # # Set threshold (FPR: 10%)
-    # clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
-    #
-    # # Dump to disk
-    # clf_rej.save('rbf_net')
+    # We can now create a classifier with reject
+    clf_rej = CClassifierRejectThreshold(rbf_net, 0.)
+
+    # Set threshold (FPR: 10%)
+    clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
+
+    # Dump to disk
+    clf_rej.save('rbf_net')
