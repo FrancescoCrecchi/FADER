@@ -1,5 +1,5 @@
 import os
-
+import numpy as np
 from secml.adv.seceval import CSecEval
 from secml.array import CArray
 from secml.figure import CFigure
@@ -7,8 +7,9 @@ from secml.ml.peval.metrics import CMetricAccuracyReject, CMetricAccuracy
 
 DSET = 'mnist'
 EVAL_TYPE = 'wb'
-CLFS = ['dnn', 'nr', 'dnr', 'rbf_net'] #,'tsne_rej', 'tnr']
-FNAME = 'all_'+EVAL_TYPE+'_seval_sigma_2' # 'tsne_rej_test_gamma'
+CLFS = ['deep_rbf_net_sigma_{:.1f}'.format(sigma) for sigma in np.arange(4, dtype=float)]
+CLFS = ['dnn', 'nr', 'dnr'] + CLFS #, 'deep_rbf_net_sigma_1'] #,'tsne_rej', 'tnr']
+FNAME = 'all_'+EVAL_TYPE+'_seval_deep_rbf_net' # 'tsne_rej_test_gamma'
 
 
 def compute_performance(seval_data):

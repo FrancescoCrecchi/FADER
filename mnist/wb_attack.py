@@ -1,3 +1,4 @@
+import numpy as np
 from secml.adv.attacks import CAttackEvasionPGDExp
 from secml.array import CArray
 from secml.ml.classifiers.reject import CClassifierRejectThreshold, CClassifierDNR
@@ -7,7 +8,7 @@ from mnist.rbf_net import CClassifierRBFNetwork, RBFNetOnDNN
 from mnist.attack_dnn import security_evaluation
 from mnist.fit_dnn import get_datasets
 
-CLFS = ['rbf_net']
+CLFS = ['deep_rbf_net_sigma_{:.1f}'.format(sigma) for sigma in np.arange(4, dtype=float)]
 # USE_DOUBLE_INIT = True
 
 N_SAMPLES = 100     # TODO: restore full dataset

@@ -41,8 +41,11 @@ if __name__ == '__main__':
     clf = CClassifierRBFNetwork(mlp, layers,
                                 n_hiddens,
                                 epochs=150,       # DEBUG: RESTORE TO 150 HERE!
+                                # batch_size=128,
+                                # lr=1e-4,
                                 validation_data=ts,
-                                track_prototypes=True,
+                                sigma=2.0,
+                                track_prototypes=False,
                                 random_state=seed)
 
     # Initialize prototypes with some training samples
@@ -61,60 +64,68 @@ if __name__ == '__main__':
     acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
     print("Accuracy of PyTorch Model: {:}".format(acc))
 
-    # Track prototypes (combiner is 2D)
-    comb_proto = []
-    for p_i in clf._prototypes:
-        comb_proto.append(p_i['combiner'])
-
-    import numpy as np
-    prototypes = np.array(comb_proto)  # shape = (n_tracks, n_hiddens, n_feats)
-    prototypes = [CArray(prototypes[:, i, :]) for i in range(prototypes.shape[1])]
+    # # Track prototypes (combiner is 2D)
+    # comb_proto = []
+    # for p_i in clf._prototypes:
+    #     comb_proto.append(p_i['combiner'])
+    #
+    # import numpy as np
+    # prototypes = np.array(comb_proto)  # shape = (n_tracks, n_hiddens, n_feats)
+    # prototypes = [CArray(prototypes[:, i, :]) for i in range(prototypes.shape[1])]
 
     # Test plot
     from secml.figure import CFigure
 
     fig = CFigure()
 
-    # class CClassifierIdentity(CClassifier):
+    # # class CClassifierIdentity(CClassifier):
+    # #
+    # #     def _fit(self, x, y):
+    # #         pass
+    # #
+    # #     def _check_is_fitted(self):
+    # #         return True
+    # #
+    # #     def _forward(self, x):
+    # #         return x
+    # #
+    # #     def _backward(self, w):
+    # #         pass
+    # #
+    # # pre_comb_clf = CClassifierIdentity(preprocess=CNormalizerDNN(clf, "_merge"))
+    # # pre_comb_clf._classes = clf._classes
+    # # fig.sp.plot_decision_regions(pre_comb_clf, n_grid_points=50, grid_limits=[(-2.5, 2.5), (-2.5, 2.5)])
+    # # HACK: Setting 'out_layer' for CClassifierPyTorch
+    # clf._out_layer = '_merge'
+    # fig.sp.plot_decision_regions(clf, n_grid_points=50, grid_limits=[(-2.5, 2.5), (-2.5, 2.5)])
+    # clf._out_layer = None
     #
-    #     def _fit(self, x, y):
-    #         pass
+    # # Register hook
+    # activations = None
+    # def get_activations(model, input, output):
+    #     global activations
+    #     activations = output.detach().numpy()
     #
-    #     def _check_is_fitted(self):
-    #         return True
+    # clf.model._merge.register_forward_hook(get_activations)
+    # # Void Fwd pass
+    # clf._batch_size = ts.X.shape[0] # HACK: Setting 'batch_size' to dset shape
+    # _ = clf.forward(ts.X)
+    # # Retrieve inputs to create new combiner input features dataset
+    # fx_dset = CDataset(CArray(activations), ts.Y)
+    # fig.sp.plot_ds(fx_dset)
+    # # fig.sp.plot_ds(ts)
     #
-    #     def _forward(self, x):
-    #         return x
-    #
-    #     def _backward(self, w):
-    #         pass
-    #
-    # pre_comb_clf = CClassifierIdentity(preprocess=CNormalizerDNN(clf, "_merge"))
-    # pre_comb_clf._classes = clf._classes
-    # fig.sp.plot_decision_regions(pre_comb_clf, n_grid_points=50, grid_limits=[(-2.5, 2.5), (-2.5, 2.5)])
-    # HACK: Setting 'out_layer' for CClassifierPyTorch
-    clf._out_layer = '_merge'
-    fig.sp.plot_decision_regions(clf, n_grid_points=50, grid_limits=[(-2.5, 2.5), (-2.5, 2.5)])
-    clf._out_layer = None
+    # # Plot prototypes
+    # for proto in prototypes:
+    #     fig.sp.plot_path(proto)
 
-    # Register hook
-    activations = None
-    def get_activations(model, input, output):
-        global activations
-        activations = output.detach().numpy()
+    # DEBUG: PLOT CLF-REJ DECISION REGIONS
+    from secml.ml.classifiers.reject import CClassifierRejectThreshold
+    clf_rej = CClassifierRejectThreshold(clf, 0.)
+    clf_rej.threshold = clf_rej.compute_threshold(0.1, ts)
+    fig.sp.plot_decision_regions(clf_rej, n_grid_points=100) #, grid_limits=[(-0.5, 1.5), (-0.5, 1.5)])
+    fig.sp.plot_ds(ts)
 
-    clf.model._merge.register_forward_hook(get_activations)
-    # Void Fwd pass
-    clf._batch_size = ts.X.shape[0] # HACK: Setting 'batch_size' to dset shape
-    _ = clf.forward(ts.X)
-    # Retrieve inputs to create new combiner input features dataset
-    fx_dset = CDataset(CArray(activations), ts.Y)
-    fig.sp.plot_ds(fx_dset)
-    # fig.sp.plot_ds(ts)
-
-    # Plot prototypes
-    for proto in prototypes:
-        fig.sp.plot_path(proto)
     fig.title('RBFNetwork Classifier')
     fig.show()
     # fig.savefig('c_classifier_rbf_network.png')

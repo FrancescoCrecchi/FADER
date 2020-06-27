@@ -5,12 +5,12 @@ from secml.ml.classifiers.reject import CClassifierRejectThreshold, CClassifierD
 from secml.ml.peval.metrics import CMetricAccuracy, CMetricAccuracyReject
 
 from mnist.fit_dnn import get_datasets
-from mnist.rbf_net import CClassifierRBFNetwork, RBFNetOnDNN
+from mnist.rbf_net import CClassifierRBFNetwork, RBFNetOnDNN, Concatenate
 from wb_dnr_surrogate import CClassifierDNRSurrogate
 from wb_nr_surrogate import CClassifierRejectSurrogate
 
 # TODO: Set this!
-CLF = 'rbf_net'
+CLF = 'deep_rbf_net_sigma_0.0'
 USE_SMOOTHING = False
 N_SAMPLES = 100
 N_PLOTS = 10
@@ -31,7 +31,7 @@ elif CLF == 'dnr' or CLF == 'tnr':
     clf = CClassifierDNR.load(CLF+'.gz')
     if USE_SMOOTHING:
         clf = CClassifierDNRSurrogate(clf, gamma_smoothing=1000)
-elif CLF == 'rbf_net':
+elif "deep_rbf_net" in CLF:
     # DEBUG: DUPLICATED CODE TO AVOID SMOOTHING
     clf = CClassifierRejectThreshold.load(CLF + '.gz')
 else:

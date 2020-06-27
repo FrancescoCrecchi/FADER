@@ -80,7 +80,8 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                 outputs = self._model(inputs)
                 loss = self._loss(outputs, labels)
                 # HACK: GRAD NORM REGULARIZATION HERE!
-                loss += self._sigma * grad_norm(loss, inputs, True)
+                reg = grad_norm(loss, inputs, True)
+                loss += self._sigma * reg
                 loss.backward()
                 self._optimizer.step()
                 # accumulate (Simple Moving Average)

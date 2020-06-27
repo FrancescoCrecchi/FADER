@@ -1,12 +1,9 @@
-from collections import OrderedDict
-
 import numpy as np
 import torch
 from torch import nn, optim
-
 from secml.array import CArray
-from secml.ml.classifiers.pytorch.c_classifier_pytorch import get_layers, CClassifierPyTorch, use_cuda
 from secml.ml.classifiers.reject import CClassifierRejectThreshold
+from secml.ml.classifiers.pytorch.c_classifier_pytorch import get_layers
 from secml.ml.peval.metrics import CMetricAccuracy
 
 from components.rbf_network import RBFNetwork
@@ -50,12 +47,12 @@ class RBFNetOnDNN(nn.Module):
         for name, layer in get_layers(self.dnn):
             if name in self._layers:
                 n_feats = np.prod(self._dnn_activations[layer].shape[1:]).item()
-                self._layer_clfs[name] = RBFNetwork(n_feats, self._n_hiddens[i], 1) # DEBUG: n_classes
+                self._layer_clfs[name] = RBFNetwork(n_feats, self._n_hiddens[i], n_classes)
                 i += 1
         self._merge = Concatenate()
         # Set combiner ontop
         assert i > 0, "Something wrong in RBFNet layer_clf init!"
-        n_feats = len(self._layers)                             # DEBUG: * n_classes
+        n_feats = len(self._layers) * n_classes
         self._combiner = RBFNetwork(n_feats, self._n_hiddens[i], n_classes)
         # self._combiner = nn.Sequential(OrderedDict([
         #     ('batch_norm', nn.BatchNorm1d(n_feats)),
@@ -102,6 +99,7 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
 
     def __init__(self, dnn, layers, n_hiddens=100,
                  epochs=300, batch_size=32,
+                 lr=1e-3,
                  validation_data=None,
                  sigma=0.,
                  track_prototypes=False,
@@ -116,7 +114,7 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
         model = RBFNetOnDNN(dnn.model, layers, dnn.input_shape, dnn.n_classes, self._n_hiddens)
         # Loss & Optimizer
         loss = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters())  # --> TODO: Expose optimizer params <--
+        optimizer = optim.Adam(model.parameters(), lr=lr)  # --> TODO: Expose optimizer params <--
         super(CClassifierRBFNetwork, self).__init__(model,
                                                     loss=loss,
                                                     optimizer=optimizer,
@@ -189,6 +187,8 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
     # TODO: Expose Betas
 
 
+SIGMA = 0.0         # HACK: REGULARIZATION KNOB
+
 N_TRAIN, N_TEST = 10000, 1000
 if __name__ == '__main__':
     random_state = 999
@@ -217,10 +217,10 @@ if __name__ == '__main__':
     n_hiddens = [250, 250, 50, 10]
     rbf_net = CClassifierRBFNetwork(dnn, layers,
                                     n_hiddens=n_hiddens,
-                                    epochs=40,
+                                    epochs=150,
                                     batch_size=32,
                                     validation_data=vl_sample,
-                                    # sigma=1.0,  # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
+                                    sigma=SIGMA,  # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
                                     random_state=random_state)
 
     # Initialize prototypes with some training samples
@@ -246,4 +246,4 @@ if __name__ == '__main__':
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
 
     # Dump to disk
-    clf_rej.save('rbf_net')
+    clf_rej.save('deep_rbf_net_sigma_{}'.format(SIGMA))
