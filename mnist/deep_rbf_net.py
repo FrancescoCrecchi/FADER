@@ -247,4 +247,4 @@ if __name__ == '__main__':
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
 
     # Dump to disk
-    # clf_rej.save('deep_rbf_net_sigma_{}'.format(SIGMA))
+    clf_rej.save('deep_rbf_net_sigma_{}'.format(SIGMA))

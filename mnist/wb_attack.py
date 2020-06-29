@@ -8,7 +8,8 @@ from mnist.deep_rbf_net import CClassifierDeepRBFNetwork, DeepRBFNetOnDNN
 from mnist.attack_dnn import security_evaluation
 from mnist.fit_dnn import get_datasets
 
-CLFS = ['deep_rbf_net_sigma_{:.1f}'.format(sigma) for sigma in np.arange(4, dtype=float)]
+CLF = "rbf_net"
+CLFS = ['{}_sigma_{:.1f}'.format(CLF, sigma) for sigma in np.arange(4, dtype=float)]
 # USE_DOUBLE_INIT = True
 
 N_SAMPLES = 100     # TODO: restore full dataset
