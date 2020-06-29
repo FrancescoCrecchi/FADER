@@ -42,21 +42,27 @@ class DeepRBFNetOnDNN(nn.Module):
         self._layer_clfs = nn.ModuleDict()
         # In order to instantiate correctly the RBF module we need to compute the input size
         # we can do this by running a fake sample through the input and looking to the activations sizes
-        dnn_device = next(self.dnn.parameters()).device
-        _ = self.dnn(torch.rand(tuple([1] + list(input_shape))).to(dnn_device))
+        self._device = next(self.dnn.parameters()).device
+        _ = self.dnn(torch.rand(tuple([1] + list(input_shape))).to(self._device))
         i = 0
         for name, layer in get_layers(self.dnn):
             if name in self._layers:
                 n_feats = np.prod(self._dnn_activations[layer].shape[1:]).item()
-                self._layer_clfs[name] = RBFNetwork(n_feats, self._n_hiddens[i], n_classes)
+                rbfnet = RBFNetwork(n_feats, self._n_hiddens[i], n_classes)
+                # HACK: FIX BETAS
+                rbfnet.train_betas = False
+                self._layer_clfs[name] = rbfnet
                 i += 1
         self._stack = Stack()
         # Set combiner on top
         assert i > 0, "Something wrong in RBFNet layer_clf init!"
         self._combiner = nn.ModuleList()
         for _ in range(n_classes):
-            self._combiner.append(RBFNetwork(len(self._layers), 1, 1))  # (1 combiner per class: RBFUnit + LinearUnit -> Class score)
-
+            # 1 combiner per class: RBFUnit + LinearUnit -> Class score
+            rbfnet = RBFNetwork(len(self._layers), 1, 1)
+            # HACK: FIX BETAS
+            rbfnet.train_betas = False
+            self._combiner.append(rbfnet)
 
     def _register_hooks(self):
         # ========= Setting hooks =========
@@ -80,14 +86,10 @@ class DeepRBFNetOnDNN(nn.Module):
                 activ = self._dnn_activations[layer]
                 fx.append(self._layer_clfs[name]([activ.view(activ.shape[0], -1)]))
         fx = self._stack(fx, 2)        # fx.shape=(batch_size, n_classes, n_layers)
-        # Unpack into lists for _combiner
-        out = []
-        for i in range(x.shape[0]):
-            o = []
-            for j in range(self._n_classes):
-                o.append(self._combiner[j]([fx[i, j, :][None, :]]))
-            out.append(torch.cat(o, 1))
-        out = torch.cat(out, 0)
+        # Pass through combiner x class
+        out = torch.zeros((x.shape[0], self._n_classes)).to(self._device)
+        for c in range(self._n_classes):
+            out[:, c] = self._combiner[c]([fx[:, c, :]]).squeeze()
 
         return out
 
@@ -146,27 +148,22 @@ class CClassifierDeepRBFNetwork(CClassifierPyTorchRBFNetwork):
         return proto
 
     @prototypes.setter
-    def prototypes(self, x):
+    def prototypes(self, dset):
         '''
         Set 'DeepRBFNetOnDNN' layer_clfs and combiner prototypes (same Xs for all)
         :param value: Input prototypes vectors
         '''
+        # Unpack and reshape
+        x, y = dset.X.tondarray().reshape(-1, *self.input_shape), dset.Y.tondarray()
+
         # Move model to 'device'
         self.model.to(self._device)
 
         # Convert to torch.Tensor
-        x = torch.Tensor(x.tondarray().reshape(-1, *self.input_shape)).float().to(self._device)
-
-        # Hold-out 'n_hiddens[-1]' samples at random to avoid combiner overfitting
-        idxs = torch.Tensor(CArray.randsample(x.shape[0], self._n_hiddens[-1], random_state=self._random_state).tondarray())
-        b_mask = torch.zeros(x.shape[0])
-        b_mask[idxs.long()] = 1.0
-        b_mask = b_mask.bool()
-        x_comb = x[b_mask, :]
-        x = x[~b_mask, :]
+        x_torch = torch.Tensor(x).float().to(self._device)
 
         # Void run to compute hooks
-        _ = self.model.dnn.forward(x)
+        _ = self.model.dnn.forward(x_torch)
         # Use computed features to setup prototypes
         i = 0
         for name, layer in get_layers(self.model.dnn):
@@ -175,8 +172,14 @@ class CClassifierDeepRBFNetwork(CClassifierPyTorchRBFNetwork):
                 self.model._layer_clfs[name].prototypes = [activ.view(activ.shape[0], -1)]
                 i += 1
 
+        # Select one sample per class to init. combiner prototypes
+        comb_x = torch.zeros((self._n_classes, *x_torch.shape[1:]))
+        for c in range(self._n_classes):
+            # Selecting the fist one, for simplicity
+            comb_x[c, :] = x_torch[y == c][0]
+
         # Run dnn on them
-        _ = self.model.dnn.forward(x_comb)
+        _ = self.model.dnn.forward(comb_x.to(self._device))
         # Pack activations
         fx = []
         i = 0
@@ -186,8 +189,9 @@ class CClassifierDeepRBFNetwork(CClassifierPyTorchRBFNetwork):
                 out = self.model._layer_clfs[name]([activ.view(activ.shape[0], -1)])
                 fx.append(out)
                 i += 1
-        fx = torch.cat(fx, 1)
-        self.model._combiner.prototypes = [fx]
+        fx = torch.stack(fx, 2)
+        for c in range(self._n_classes):
+            self.model._combiner[c].prototypes = [fx[c, c, :][None, :]]
 
     # TODO: Expose Betas
 
@@ -222,17 +226,17 @@ if __name__ == '__main__':
     n_hiddens = [250, 250, 50]
     rbf_net = CClassifierDeepRBFNetwork(dnn, layers,
                                         n_hiddens=n_hiddens,
-                                        epochs=150,
+                                        epochs=40,
                                         batch_size=32,
                                         validation_data=vl_sample,
                                         sigma=SIGMA,  # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
                                         random_state=random_state)
 
-    # # Initialize prototypes with some training samples
-    # h = max(n_hiddens[:-1]) + n_hiddens[-1]       # HACK: "Nel piu' ci sta il meno..."
-    # idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
-    # proto = tr_sample.X[idxs, :]
-    # rbf_net.prototypes = proto
+    # Initialize prototypes with some training samples
+    h = max(n_hiddens[:-1]) + n_hiddens[-1]       # HACK: "Nel piu' ci sta il meno..."
+    idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
+    proto = tr_sample[idxs, :]
+    rbf_net.prototypes = proto
 
     # Fit DNR
     rbf_net.verbose = 2  # DEBUG
@@ -244,11 +248,11 @@ if __name__ == '__main__':
     acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
     print("RBFNet Accuracy: {}".format(acc))
 
-    # We can now create a classifier with reject
-    clf_rej = CClassifierRejectThreshold(rbf_net, 0.)
-
-    # Set threshold (FPR: 10%)
-    clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
-
-    # Dump to disk
-    clf_rej.save('deep_rbf_net_sigma_{}'.format(SIGMA))
+    # # We can now create a classifier with reject
+    # clf_rej = CClassifierRejectThreshold(rbf_net, 0.)
+    #
+    # # Set threshold (FPR: 10%)
+    # clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
+    #
+    # # Dump to disk
+    # clf_rej.save('deep_rbf_net_sigma_{}'.format(SIGMA))

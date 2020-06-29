@@ -12,11 +12,13 @@ from mnist.deep_rbf_net import CClassifierDeepRBFNetwork
 from mnist.rbf_net import CClassifierRBFNetwork
 
 SIGMA = 1.0  # REGULARIZATION KNOB
-CLF_TYPE =   CClassifierDeepRBFNetwork # CClassifierRBFNetwork  #
-N_HIDDENS = [20, 20, 20]
-EPOCHS = 250
-DIR = 'deep_rbf_net_blobs'
-os.makedirs(DIR)
+CLF_TYPE = CClassifierRBFNetwork  # CClassifierDeepRBFNetwork #
+CLF_NAME = "CClassifierRBFNetwork" if CLF_TYPE is CClassifierRBFNetwork else "CClassifierDeepRBFNetwork"
+N_HIDDENS = [20, 20]
+EPOCHS = 20
+RUNS = 10
+DIR = '{}_net_blobs_sigma_{}'.format('rbf' if CLF_TYPE is CClassifierRBFNetwork else 'deep_rbf', int(SIGMA))
+os.makedirs(DIR, exist_ok=True)
 
 
 if __name__ == '__main__':
@@ -59,21 +61,21 @@ if __name__ == '__main__':
     # Initialize prototypes with some training samples
     h = max(n_hiddens[:-1]) + n_hiddens[-1]  # HACK: "Nel piu' ci sta il meno..."
     idxs = CArray.randsample(tr.X.shape[0], shape=(h,), replace=False, random_state=seed)
-    proto = tr.X[idxs, :]
+    proto = tr[idxs, :]
     clf.prototypes = proto
 
     # figs = []
-    for run in range(10):
+    for run in range(RUNS):
 
         # Fit clf
-        # clf.verbose = 1
+        clf.verbose = 1
         clf.fit(tr.X, tr.Y)
-        # clf.verbose = 0
+        clf.verbose = 0
 
         # Predict
         y_pred = clf.predict(ts.X)
         acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
-        print("[Epoch: {}] Accuracy of PyTorch Model: {:}".format((run+1)*EPOCHS, acc))
+        print("[Epoch: {}] Accuracy: {:}".format((run+1)*EPOCHS, acc))
 
         # # Track prototypes (combiner is 2D)
         # comb_proto = []
@@ -138,7 +140,7 @@ if __name__ == '__main__':
         fig.sp.plot_decision_regions(clf_rej, n_grid_points=100, grid_limits=[(-1., 2.), (-1., 2)])
         fig.sp.plot_ds(ts)
 
-        fig.title('DeepRBFNetwork Classifier - Sigma reg. 1.0')
+        fig.title('{} - Sigma {}'.format(CLF_NAME, SIGMA))
         # figs.append(fig.deepcopy())
         # fig.show()
         fig.savefig(os.path.join(DIR, "{}.png".format(run)))

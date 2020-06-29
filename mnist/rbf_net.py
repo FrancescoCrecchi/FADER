@@ -64,6 +64,8 @@ class RBFNetOnDNN(nn.Module):
                 n_feats.append(np.prod(self._dnn_activations[layer].shape[1:]))
         # n_feats =s [np.prod(list(self._dnn_activations[l].shape[1:])) for l in self._layers]
         self.rbfnet = RBFNetwork(n_feats, n_hiddens, n_classes)
+        # HACK: FIX BETAS
+        self.rbfnet.train_betas = False
 
     def _register_hooks(self):
         # ========= Setting hooks =========
@@ -129,13 +131,17 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
         return res
 
     @prototypes.setter
-    def prototypes(self, x):
+    def prototypes(self, dset):
+
+        # Unpack and reshape
+        x = dset.X.tondarray().reshape(-1, *self.input_shape)
+
         # Move model to 'device'
         self.model.to(self._device)
         # Convert to torch.Tensor
-        x = torch.Tensor(x.tondarray().reshape(-1, *self.input_shape)).float().to(self._device)
+        x_torch = torch.Tensor(x).float().to(self._device)
         # Void run to compute hooks
-        _ = self.model.dnn.forward(x)
+        _ = self.model.dnn.forward(x_torch)
         # Use computed features to setup prototypes
         i = 0
         fx = []
