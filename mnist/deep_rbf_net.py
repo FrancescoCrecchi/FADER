@@ -14,13 +14,13 @@ from mnist.cnn_mnist import cnn_mnist_model
 from mnist.fit_dnn import get_datasets
 
 
-class Concatenate(nn.Module):
+class Stack(nn.Module):
 
     def __init__(self):
-        super(Concatenate, self).__init__()
+        super(Stack, self).__init__()
 
     def forward(self, iterable, axis):
-        x = torch.cat(iterable, axis)
+        x = torch.stack(iterable, axis)
         return x
 
 
@@ -50,17 +50,13 @@ class DeepRBFNetOnDNN(nn.Module):
                 n_feats = np.prod(self._dnn_activations[layer].shape[1:]).item()
                 self._layer_clfs[name] = RBFNetwork(n_feats, self._n_hiddens[i], n_classes)
                 i += 1
-        self._merge = Concatenate()
-        # Set combiner ontop
+        self._stack = Stack()
+        # Set combiner on top
         assert i > 0, "Something wrong in RBFNet layer_clf init!"
-        n_feats = len(self._layers) * n_classes
-        self._combiner = RBFNetwork(n_feats, self._n_hiddens[i], n_classes)
-        # self._combiner = nn.Sequential(OrderedDict([
-        #     ('batch_norm', nn.BatchNorm1d(n_feats)),
-        #     ('combiner', RBFNetwork(n_feats, self._n_hiddens[i], n_classes))
-        # ]))
-        # n_feats = sum(self._n_hiddens[:-1])
-        # self._combiner = nn.Linear(n_feats, self._n_classes)
+        self._combiner = nn.ModuleList()
+        for _ in range(n_classes):
+            self._combiner.append(RBFNetwork(len(self._layers), 1, 1))  # (1 combiner per class: RBFUnit + LinearUnit -> Class score)
+
 
     def _register_hooks(self):
         # ========= Setting hooks =========
@@ -82,9 +78,17 @@ class DeepRBFNetOnDNN(nn.Module):
         for name, layer in get_layers(self.dnn):
             if name in self._layers:
                 activ = self._dnn_activations[layer]
-                fx.append(self._layer_clfs[name](activ.view(activ.shape[0], -1)))
-        fx = self._merge(fx, 1)
-        out = self._combiner(fx)
+                fx.append(self._layer_clfs[name]([activ.view(activ.shape[0], -1)]))
+        fx = self._stack(fx, 2)        # fx.shape=(batch_size, n_classes, n_layers)
+        # Unpack into lists for _combiner
+        out = []
+        for i in range(x.shape[0]):
+            o = []
+            for j in range(self._n_classes):
+                o.append(self._combiner[j]([fx[i, j, :][None, :]]))
+            out.append(torch.cat(o, 1))
+        out = torch.cat(out, 0)
+
         return out
 
     # def to(self, *args, **kwargs):
@@ -108,7 +112,7 @@ class CClassifierDeepRBFNetwork(CClassifierPyTorchRBFNetwork):
 
         # Param checking
         if isinstance(n_hiddens, int):
-            n_hiddens = [n_hiddens] * (len(layers) + 1)  # Taking care of the combiner..
+            n_hiddens = [n_hiddens] * (len(layers))  # Taking care of the combiner..
         self._n_hiddens = n_hiddens
 
         # DeepRBFNetOnDNN (TODO: pass other params)
@@ -179,7 +183,7 @@ class CClassifierDeepRBFNetwork(CClassifierPyTorchRBFNetwork):
         for name, layer in get_layers(self.model.dnn):
             if name in self._layers:
                 activ = self.model._dnn_activations[layer][:self._n_hiddens[i]]
-                out = self.model._layer_clfs[name](activ.view(activ.shape[0], -1))
+                out = self.model._layer_clfs[name]([activ.view(activ.shape[0], -1)])
                 fx.append(out)
                 i += 1
         fx = torch.cat(fx, 1)
@@ -215,7 +219,7 @@ if __name__ == '__main__':
 
     # Create DNR
     layers = ['features:relu2', 'features:relu3', 'features:relu4']
-    n_hiddens = [250, 250, 50, 10]
+    n_hiddens = [250, 250, 50]
     rbf_net = CClassifierDeepRBFNetwork(dnn, layers,
                                         n_hiddens=n_hiddens,
                                         epochs=150,
@@ -224,11 +228,11 @@ if __name__ == '__main__':
                                         sigma=SIGMA,  # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
                                         random_state=random_state)
 
-    # Initialize prototypes with some training samples
-    h = max(n_hiddens[:-1]) + n_hiddens[-1]       # HACK: "Nel piu' ci sta il meno..."
-    idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
-    proto = tr_sample.X[idxs, :]
-    rbf_net.prototypes = proto
+    # # Initialize prototypes with some training samples
+    # h = max(n_hiddens[:-1]) + n_hiddens[-1]       # HACK: "Nel piu' ci sta il meno..."
+    # idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
+    # proto = tr_sample.X[idxs, :]
+    # rbf_net.prototypes = proto
 
     # Fit DNR
     rbf_net.verbose = 2  # DEBUG

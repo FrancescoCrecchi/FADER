@@ -86,7 +86,7 @@ class RBFNetOnDNN(nn.Module):
             if name in self._layers:
                 activ = self._dnn_activations[layer]
                 fx.append(activ.view(activ.shape[0], -1))
-        fx = torch.cat(fx, 1)
+        # Passing a list of activations
         out = self.rbfnet(fx)
         return out
 
@@ -149,8 +149,8 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
     # TODO: Expose Betas
 
 
-SIGMA = 1.0         # HACK: REGULARIZATION KNOB
-EPOCHS = 1000
+SIGMA = 0.0         # HACK: REGULARIZATION KNOB
+EPOCHS = 100
 
 N_TRAIN, N_TEST = 10000, 1000
 if __name__ == '__main__':
@@ -207,6 +207,7 @@ if __name__ == '__main__':
 
     # Set threshold (FPR: 10%)
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
+    print(clf_rej.threshold)
 
-    # Dump to disk
-    clf_rej.save('rbf_net_sigma_{}_{}'.format(SIGMA, EPOCHS))
+    # Dump to disk®
+    # clf_rej.save('rbf_net_sigma_{}_{}'.format(SIGMA, EPOCHS))

@@ -103,11 +103,11 @@ if __name__ == '__main__':
         # #     def _backward(self, w):
         # #         pass
         # #
-        # # pre_comb_clf = CClassifierIdentity(preprocess=CNormalizerDNN(clf, "_merge"))
+        # # pre_comb_clf = CClassifierIdentity(preprocess=CNormalizerDNN(clf, "_stack"))
         # # pre_comb_clf._classes = clf._classes
         # # fig.sp.plot_decision_regions(pre_comb_clf, n_grid_points=50, grid_limits=[(-2.5, 2.5), (-2.5, 2.5)])
         # # HACK: Setting 'out_layer' for CClassifierPyTorch
-        # clf._out_layer = '_merge'
+        # clf._out_layer = '_stack'
         # fig.sp.plot_decision_regions(clf, n_grid_points=50, grid_limits=[(-2.5, 2.5), (-2.5, 2.5)])
         # clf._out_layer = None
         #
@@ -117,7 +117,7 @@ if __name__ == '__main__':
         #     global activations
         #     activations = output.detach().numpy()
         #
-        # clf.model._merge.register_forward_hook(get_activations)
+        # clf.model._stack.register_forward_hook(get_activations)
         # # Void Fwd pass
         # clf._batch_size = ts.X.shape[0] # HACK: Setting 'batch_size' to dset shape
         # _ = clf.forward(ts.X)

@@ -6,7 +6,7 @@ from secml.ml.peval.metrics import CMetricAccuracy, CMetricAccuracyReject
 
 from mnist.fit_dnn import get_datasets
 from mnist.rbf_net import CClassifierRBFNetwork, RBFNetOnDNN
-from mnist.deep_rbf_net import CClassifierDeepRBFNetwork, DeepRBFNetOnDNN, Concatenate
+from mnist.deep_rbf_net import CClassifierDeepRBFNetwork, DeepRBFNetOnDNN, Stack
 
 from wb_dnr_surrogate import CClassifierDNRSurrogate
 from wb_nr_surrogate import CClassifierRejectSurrogate

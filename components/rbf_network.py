@@ -43,15 +43,13 @@ class RBFNetwork(nn.Module):
         self._train_prototypes = True
 
 
-    def forward(self, x):
+    def forward(self, x_list):
         f_x = []
         # Compute layer embeddings through RBF units
-        start = 0
         for i in range(len(self.rbf_layers)):
-            out = self.rbf_layers[i](x[:, start:start+self.n_features[i]])
-            start += self.n_features[i]
+            out = self.rbf_layers[i](x_list[i])
             f_x.append(out)
-        # Concatenate
+        # Stack
         f_x = torch.cat(f_x, dim=1)
         # Feed through linear layer
         out = self.classifier(f_x)
@@ -194,9 +192,9 @@ def test():
     #     train_proto.append(tx[h_selected, :])
     # rbfnet.prototypes = train_proto
 
-    # HACK: Try setting betas
-    rbfnet.betas = 0.001
-    rbfnet.train_betas = False
+    # # HACK: Try setting betas
+    # rbfnet.betas = 0.001
+    # rbfnet.train_betas = False
 
     fit_model(rbfnet, tx, ty, 5000, samples, 0.01, nn.BCEWithLogitsLoss())
     rbfnet.eval()
