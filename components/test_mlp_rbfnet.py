@@ -9,29 +9,16 @@ from secml.ml.peval.metrics import CMetricAccuracy
 
 from components.torch_nn import MLPytorch
 from mnist.deep_rbf_net import CClassifierDeepRBFNetwork
-from mnist.rbf_net import CClassifierRBFNetwork
+from mnist.rbf_net import CClassifierRBFNetwork, plot_train_curves
 
 SIGMA = 0.0 # REGULARIZATION KNOB
 CLF_TYPE = CClassifierRBFNetwork  # CClassifierDeepRBFNetwork #
 CLF_NAME = "CClassifierRBFNetwork" if CLF_TYPE is CClassifierRBFNetwork else "CClassifierDeepRBFNetwork"
 N_HIDDENS = [20, 20]
-EPOCHS = 10
+EPOCHS = 100
 RUNS = 1
 DIR = '{}_net_blobs_sigma_{:.2f}'.format('rbf' if CLF_TYPE is CClassifierRBFNetwork else 'deep_rbf', SIGMA)
 os.makedirs(DIR, exist_ok=True)
-
-
-def plot_train_curves(history, sigma):
-    fig = CFigure()
-    fig.sp.plot(history['tr_loss'], label='TR', marker="o")
-    fig.sp.plot(history['vl_loss'], label='VL', marker="o")
-    fig.sp.plot(history['xentr_loss'], label='xentr', marker="o")
-    fig.sp.plot(history['reg_loss'], label='reg', marker="o")
-    fig.sp.plot(history['weight_decay'], label='decay', marker="o")
-    fig.sp.title("Training Curves - Sigma: {}".format(sigma))
-    fig.sp.legend()
-    fig.sp.grid()
-    return fig
 
 
 if __name__ == '__main__':

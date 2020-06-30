@@ -7,6 +7,7 @@ from secml.ml.classifiers.pytorch.c_classifier_pytorch import get_layers
 from secml.ml import CClassifierPyTorch, CClassifier, CNormalizerDNN
 from secml.ml.classifiers.reject import CClassifierRejectThreshold
 from secml.ml.peval.metrics import CMetricAccuracy
+from secml.figure import CFigure
 
 from components.c_classifier_pytorch_rbf_network import CClassifierPyTorchRBFNetwork
 from components.rbf_network import RBFNetwork
@@ -40,6 +41,19 @@ from mnist.fit_dnn import get_datasets
 #                                  # track_prototypes=True,  # DEBUG: PROTOTYPES TRACKING ENABLED
 #                                  # sigma=sigma,
 #                                  random_state=random_state)
+
+
+def plot_train_curves(history, sigma):
+    fig = CFigure()
+    fig.sp.plot(history['tr_loss'], label='TR', marker="o")
+    fig.sp.plot(history['vl_loss'], label='VL', marker="o")
+    fig.sp.plot(history['xentr_loss'], label='xentr', marker="o")
+    fig.sp.plot(history['reg_loss'], label='reg', marker="o")
+    fig.sp.plot(history['weight_decay'], label='decay', marker="o")
+    fig.sp.title("Training Curves - Sigma: {}".format(sigma))
+    fig.sp.legend()
+    fig.sp.grid()
+    return fig
 
 
 class RBFNetOnDNN(nn.Module):
@@ -103,14 +117,15 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
                  random_state=None):
         # Param checking
         if isinstance(n_hiddens, int):
-            n_hiddens = [n_hiddens] * (len(layers) + 1)  # Taking care of the combiner..
+            n_hiddens = [n_hiddens] * len(layers)
         self._n_hiddens = n_hiddens
 
         # RBFNetOnDNN (TODO: pass other params)
         model = RBFNetOnDNN(dnn.model, layers, dnn.input_shape, dnn.n_classes, self._n_hiddens)
         # Loss & Optimizer
         loss = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters())  # --> TODO: Expose optimizer params <--
+        optimizer = optim.Adam(model.parameters()) #, weight_decay=1e-3)  # --> TODO: Expose optimizer params <--
+        # optimizer = optim.SGD(model.parameters(), lr=1e-2, weight_decay=1e-2)
         super(CClassifierRBFNetwork, self).__init__(model,
                                                     loss=loss,
                                                     optimizer=optimizer,
@@ -156,7 +171,7 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
 
 
 SIGMA = 0.0         # HACK: REGULARIZATION KNOB
-EPOCHS = 100
+EPOCHS = 30
 
 N_TRAIN, N_TEST = 10000, 1000
 if __name__ == '__main__':
@@ -195,7 +210,7 @@ if __name__ == '__main__':
     # Initialize prototypes with some training samples
     h = max(n_hiddens)       # HACK: "Nel piu' ci sta il meno..."
     idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
-    proto = tr_sample.X[idxs, :]
+    proto = tr_sample[idxs, :]
     rbf_net.prototypes = proto
 
     # Fit DNR
@@ -203,17 +218,20 @@ if __name__ == '__main__':
     rbf_net.fit(tr_sample.X, tr_sample.Y)
     rbf_net.verbose = 0
 
+    # Plot training curves
+    fig = plot_train_curves(rbf_net._history, SIGMA)
+    fig.savefig("rbf_net_train_curves.png")
+
     # Check test performance
     y_pred = rbf_net.predict(ts.X, return_decision_function=False)
     acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
     print("RBFNet Accuracy: {}".format(acc))
 
-    # We can now create a classifier with reject
-    clf_rej = CClassifierRejectThreshold(rbf_net, 0.)
-
-    # Set threshold (FPR: 10%)
-    clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
-    print(clf_rej.threshold)
-
-    # Dump to disk®
+    # # We can now create a classifier with reject
+    # clf_rej = CClassifierRejectThreshold(rbf_net, 0.)
+    #
+    # # Set threshold (FPR: 10%)
+    # clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
+    #
+    # # Dump to disk
     # clf_rej.save('rbf_net_sigma_{}_{}'.format(SIGMA, EPOCHS))

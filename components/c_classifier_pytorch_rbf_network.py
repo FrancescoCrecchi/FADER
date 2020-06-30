@@ -55,7 +55,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                              "in order to fit the model.")
 
         train_loader = self._data_loader(x, y, batch_size=self._batch_size,
-                                         num_workers=self.n_jobs - 1, transform=self._transform_train, shuffle=True)
+                                         num_workers=self.n_jobs - 1, transform=self._transform_train) #, shuffle=True)
 
         if self._validation_data:
             vali_loader = self._data_loader(self._validation_data.X,
@@ -107,7 +107,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
             _reg /= batches
 
             # print statistics
-            if epoch % 1 == 0:
+            if epoch % 5 == 0:
 
                 # HACK: TRACKING PROTOTYPES
                 if self.track_prototypes:
@@ -135,7 +135,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                     vl_loss.append(vali_loss)
                     xentr_loss.append(_xentr)
                     reg_loss.append(_reg)
-                    # weight_decay.append(self._model.rbfnet.parameters().norm(2, 1).item())
+                    weight_decay.append(list(self._model.rbfnet.classifier.parameters())[0].norm(2).item())
 
                     # Logging
                     self.logger.info('[epoch: %d] TR loss: %.3e - VL loss: %.3e' % (epoch, tr_loss[-1], vl_loss[-1]))
