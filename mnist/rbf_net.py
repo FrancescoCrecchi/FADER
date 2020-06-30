@@ -127,7 +127,7 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
 
     @property
     def prototypes(self):
-        res = [CArray(proto[0].clone().detach().cpu().numpy()) for proto in self.model.rbfnet.prototypes]
+        res = [CArray(proto.clone().detach().cpu().numpy()) for proto in self.model.rbfnet.prototypes]
         return res
 
     @prototypes.setter

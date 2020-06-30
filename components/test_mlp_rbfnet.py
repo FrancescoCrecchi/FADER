@@ -11,12 +11,12 @@ from components.torch_nn import MLPytorch
 from mnist.deep_rbf_net import CClassifierDeepRBFNetwork
 from mnist.rbf_net import CClassifierRBFNetwork
 
-SIGMA = 0 # REGULARIZATION KNOB
+SIGMA = 0.0 # REGULARIZATION KNOB
 CLF_TYPE = CClassifierRBFNetwork  # CClassifierDeepRBFNetwork #
 CLF_NAME = "CClassifierRBFNetwork" if CLF_TYPE is CClassifierRBFNetwork else "CClassifierDeepRBFNetwork"
 N_HIDDENS = [20, 20]
 EPOCHS = 10
-RUNS = 10
+RUNS = 1
 DIR = '{}_net_blobs_sigma_{:.2f}'.format('rbf' if CLF_TYPE is CClassifierRBFNetwork else 'deep_rbf', SIGMA)
 os.makedirs(DIR, exist_ok=True)
 
@@ -25,6 +25,9 @@ def plot_train_curves(history, sigma):
     fig = CFigure()
     fig.sp.plot(history['tr_loss'], label='TR', marker="o")
     fig.sp.plot(history['vl_loss'], label='VL', marker="o")
+    fig.sp.plot(history['xentr_loss'], label='xentr', marker="o")
+    fig.sp.plot(history['reg_loss'], label='reg', marker="o")
+    fig.sp.plot(history['weight_decay'], label='decay', marker="o")
     fig.sp.title("Training Curves - Sigma: {}".format(sigma))
     fig.sp.legend()
     fig.sp.grid()
@@ -65,7 +68,7 @@ if __name__ == '__main__':
                    epochs=EPOCHS,
                    validation_data=ts,
                    sigma=SIGMA,
-                   track_prototypes=True,
+                   track_prototypes=False,
                    random_state=seed)
 
     # Initialize prototypes with some training samples
@@ -74,7 +77,6 @@ if __name__ == '__main__':
     proto = tr[idxs, :]
     clf.prototypes = proto
 
-    # figs = []
     for run in range(RUNS):
 
         # Fit clf
@@ -88,7 +90,7 @@ if __name__ == '__main__':
         print("[Epoch: {}] Accuracy: {:}".format((run+1)*EPOCHS, acc))
 
         # if CLF_TYPE is CClassifierRBFNetwork:
-        #     raise ValueError("Not implemented!")
+        #     pass
         # else:   # Deep case
         #     # Track prototypes (combiner is 2D)
         #     prototypes = []
@@ -154,7 +156,6 @@ if __name__ == '__main__':
         fig.sp.plot_ds(ts)
 
         fig.title('{} - Sigma {}'.format(CLF_NAME, SIGMA))
-        # figs.append(fig.deepcopy())
         # fig.show()
         fig.savefig(os.path.join(DIR, "{}.png".format(run)))
 

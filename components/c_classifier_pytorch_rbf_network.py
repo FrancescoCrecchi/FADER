@@ -9,12 +9,10 @@ from torch.autograd import grad
 from components.rbf_network import RBFNetwork
 
 
-def grad_norm(loss, inputs, train=False):
-    bs = inputs.size(0)
-    g = grad(loss, inputs, retain_graph=train)[0] * bs
-    g = g.view(bs, -1)
+def grad_norm(loss, inputs):
+    g = grad(loss, inputs, retain_graph=True)[0] #* bs
     norm = g.norm(2, 1).mean()
-    return norm.item()
+    return norm
 
 
 class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
@@ -30,6 +28,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
         self._sigma = sigma
 
         self._history = None
+        self._prototypes = None
 
     @property
     def track_prototypes(self):
@@ -56,7 +55,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                              "in order to fit the model.")
 
         train_loader = self._data_loader(x, y, batch_size=self._batch_size,
-                                         num_workers=self.n_jobs - 1, transform=self._transform_train)
+                                         num_workers=self.n_jobs - 1, transform=self._transform_train, shuffle=True)
 
         if self._validation_data:
             vali_loader = self._data_loader(self._validation_data.X,
@@ -64,38 +63,51 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                                             batch_size=self._batch_size,
                                             num_workers=self.n_jobs - 1)
 
-        # HACK: TRACKING PROTOTYPES
-        if self.track_prototypes:
-            prototypes = [self.prototypes.copy()]
-
-        if self._history is not None: # FIRST RUN
-            tr_loss, vl_loss = self._history['tr_loss'], self._history['vl_loss']
-        else:
+        if self._history is None: # FIRST RUN
             tr_loss, vl_loss = [], []
+            xentr_loss, reg_loss, weight_decay = [], [], []
+            # HACK: TRACKING PROTOTYPES
+            if self.track_prototypes:
+                prototypes = [self.prototypes.copy()]
+        else:
+            tr_loss, vl_loss = self._history['tr_loss'], self._history['vl_loss']
+            xentr_loss, reg_loss, weight_decay = self._history['xentr_loss'], self._history['reg_loss'], self._history['weight_decay']
+            prototypes = self._prototypes
 
         for epoch in range(self._epochs):
-            train_loss = 0.0
+            train_loss = 0.
             batches = 0
+            _xentr, _reg = 0., 0.
             for data in train_loader:
                 batches += 1
                 self._optimizer.zero_grad()
                 inputs, labels = data
                 inputs = inputs.to(self._device)
                 labels = labels.to(self._device)
+
                 # HACK: REGULARIZATION REQUIRES INPUT GRADIENT
                 inputs.requires_grad = True
                 outputs = self._model(inputs)
                 loss = self._loss(outputs, labels)
                 # HACK: GRAD NORM REGULARIZATION HERE!
-                reg = grad_norm(loss, inputs, True)
+                reg = grad_norm(loss, inputs)
+                # # HACK: LOGGING LOSS COMPONENTS
+                _xentr += loss.item()
+                _reg += reg.item()
+
                 loss += self._sigma * reg
                 loss.backward()
                 self._optimizer.step()
-                # accumulate (Simple Moving Average)
-                train_loss += (1 / batches) * (loss.item() - train_loss)
+                # Accumulate loss
+                train_loss += loss.item()
+
+            # Mean across batches
+            train_loss /= batches
+            _xentr /= batches
+            _reg /= batches
 
             # print statistics
-            if epoch % 10 == 0:
+            if epoch % 1 == 0:
 
                 # HACK: TRACKING PROTOTYPES
                 if self.track_prototypes:
@@ -114,12 +126,16 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                             labels = labels.to(self._device)
                             outputs = self._model(inputs)
                             loss = self._loss(outputs, labels)
-                            # accumulate
-                            vali_loss += (1 / vali_batches) * (loss.item() - vali_loss)
+                            vali_loss += loss.item()
+                        # accumulate
+                        vali_loss /= vali_batches
 
                     # Update curves
                     tr_loss.append(train_loss)
                     vl_loss.append(vali_loss)
+                    xentr_loss.append(_xentr)
+                    reg_loss.append(_reg)
+                    # weight_decay.append(self._model.rbfnet.parameters().norm(2, 1).item())
 
                     # Logging
                     self.logger.info('[epoch: %d] TR loss: %.3e - VL loss: %.3e' % (epoch, tr_loss[-1], vl_loss[-1]))
@@ -127,7 +143,6 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                 else:
                     # Update curves
                     tr_loss.append(train_loss)
-
                     # Logging
                     self.logger.info('[epoch: %d] TR loss: %.3f' % (epoch, tr_loss[-1]))
 
@@ -143,7 +158,10 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
         # HACK: Store training data for plots
         self._history = {
             'tr_loss': tr_loss,
-            'vl_loss': vl_loss
+            'vl_loss': vl_loss,
+            'xentr_loss': xentr_loss,
+            'reg_loss': reg_loss,
+            'weight_decay': weight_decay
         }
 
         return self._model
