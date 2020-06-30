@@ -11,14 +11,24 @@ from components.torch_nn import MLPytorch
 from mnist.deep_rbf_net import CClassifierDeepRBFNetwork
 from mnist.rbf_net import CClassifierRBFNetwork
 
-SIGMA = 1.0  # REGULARIZATION KNOB
+SIGMA = 0 # REGULARIZATION KNOB
 CLF_TYPE = CClassifierRBFNetwork  # CClassifierDeepRBFNetwork #
 CLF_NAME = "CClassifierRBFNetwork" if CLF_TYPE is CClassifierRBFNetwork else "CClassifierDeepRBFNetwork"
 N_HIDDENS = [20, 20]
-EPOCHS = 20
+EPOCHS = 10
 RUNS = 10
-DIR = '{}_net_blobs_sigma_{}'.format('rbf' if CLF_TYPE is CClassifierRBFNetwork else 'deep_rbf', int(SIGMA))
+DIR = '{}_net_blobs_sigma_{:.2f}'.format('rbf' if CLF_TYPE is CClassifierRBFNetwork else 'deep_rbf', SIGMA)
 os.makedirs(DIR, exist_ok=True)
+
+
+def plot_train_curves(history, sigma):
+    fig = CFigure()
+    fig.sp.plot(history['tr_loss'], label='TR', marker="o")
+    fig.sp.plot(history['vl_loss'], label='VL', marker="o")
+    fig.sp.title("Training Curves - Sigma: {}".format(sigma))
+    fig.sp.legend()
+    fig.sp.grid()
+    return fig
 
 
 if __name__ == '__main__':
@@ -27,7 +37,7 @@ if __name__ == '__main__':
     n_features = 2  # Number of features
     n_samples = 1250  # Number of samples
     centers = [[-2, 0], [2, -2], [2, 2]]  # Centers of the clusters
-    cluster_std = 0.8  # Standard deviation of the clusters
+    cluster_std = 1.2  # Standard deviation of the clusters
     ds = CDLRandomBlobs(n_features=n_features,
                         centers=centers,
                         cluster_std=cluster_std,
@@ -55,7 +65,7 @@ if __name__ == '__main__':
                    epochs=EPOCHS,
                    validation_data=ts,
                    sigma=SIGMA,
-                   track_prototypes=False,
+                   track_prototypes=True,
                    random_state=seed)
 
     # Initialize prototypes with some training samples
@@ -77,13 +87,16 @@ if __name__ == '__main__':
         acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
         print("[Epoch: {}] Accuracy: {:}".format((run+1)*EPOCHS, acc))
 
-        # # Track prototypes (combiner is 2D)
-        # comb_proto = []
-        # for p_i in clf._prototypes:
-        #     comb_proto.append(p_i['combiner'])
+        # if CLF_TYPE is CClassifierRBFNetwork:
+        #     raise ValueError("Not implemented!")
+        # else:   # Deep case
+        #     # Track prototypes (combiner is 2D)
+        #     prototypes = []
+        #     for p_i in clf._prototypes:
+        #         prototypes.append(p_i['combiner'])
         #
         # import numpy as np
-        # prototypes = np.array(comb_proto)  # shape = (n_tracks, n_hiddens, n_feats)
+        # prototypes = np.array(prototypes)  # shape = (n_tracks, n_hiddens, n_feats)
         # prototypes = [CArray(prototypes[:, i, :]) for i in range(prototypes.shape[1])]
 
         # Test plot
@@ -137,7 +150,7 @@ if __name__ == '__main__':
 
         clf_rej = CClassifierRejectThreshold(clf, 0.)
         clf_rej.threshold = clf_rej.compute_threshold(0.1, ts)
-        fig.sp.plot_decision_regions(clf_rej, n_grid_points=100, grid_limits=[(-1., 2.), (-1., 2)])
+        fig.sp.plot_decision_regions(clf_rej, n_grid_points=100, grid_limits=[(-2., 2.), (-2., 2)])
         fig.sp.plot_ds(ts)
 
         fig.title('{} - Sigma {}'.format(CLF_NAME, SIGMA))
@@ -145,4 +158,7 @@ if __name__ == '__main__':
         # fig.show()
         fig.savefig(os.path.join(DIR, "{}.png".format(run)))
 
+    # Plot train curves
+    fig = plot_train_curves(clf._history, SIGMA)
+    fig.savefig(os.path.join(DIR, "train_curves.png"))
     print('done?')

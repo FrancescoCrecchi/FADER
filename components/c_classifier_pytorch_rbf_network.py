@@ -29,6 +29,8 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
         self._track_prototypes = track_prototypes
         self._sigma = sigma
 
+        self._history = None
+
     @property
     def track_prototypes(self):
         return self._track_prototypes
@@ -66,6 +68,11 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
         if self.track_prototypes:
             prototypes = [self.prototypes.copy()]
 
+        if self._history is not None: # FIRST RUN
+            tr_loss, vl_loss = self._history['tr_loss'], self._history['vl_loss']
+        else:
+            tr_loss, vl_loss = [], []
+
         for epoch in range(self._epochs):
             train_loss = 0.0
             batches = 0
@@ -88,7 +95,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                 train_loss += (1 / batches) * (loss.item() - train_loss)
 
             # print statistics
-            if epoch % 1 == 0:      # TODO: RESTORE to 10
+            if epoch % 10 == 0:
 
                 # HACK: TRACKING PROTOTYPES
                 if self.track_prototypes:
@@ -109,12 +116,20 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                             loss = self._loss(outputs, labels)
                             # accumulate
                             vali_loss += (1 / vali_batches) * (loss.item() - vali_loss)
+
+                    # Update curves
+                    tr_loss.append(train_loss)
+                    vl_loss.append(vali_loss)
+
                     # Logging
-                    self.logger.info('[epoch: %d] TR loss: %.3e - VL loss: %.3e' % (epoch + 1, train_loss, vali_loss))
+                    self.logger.info('[epoch: %d] TR loss: %.3e - VL loss: %.3e' % (epoch, tr_loss[-1], vl_loss[-1]))
                     self._model.train()  # restore training mode
                 else:
+                    # Update curves
+                    tr_loss.append(train_loss)
+
                     # Logging
-                    self.logger.info('[epoch: %d] TR loss: %.3f' % (epoch + 1, train_loss))
+                    self.logger.info('[epoch: %d] TR loss: %.3f' % (epoch, tr_loss[-1]))
 
             if self._optimizer_scheduler is not None:
                 self._optimizer_scheduler.step()
@@ -124,6 +139,12 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
         # HACK: STORING PROTOTYPES
         if self.track_prototypes:
             self._prototypes = prototypes
+
+        # HACK: Store training data for plots
+        self._history = {
+            'tr_loss': tr_loss,
+            'vl_loss': vl_loss
+        }
 
         return self._model
 
