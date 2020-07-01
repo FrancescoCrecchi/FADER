@@ -4,6 +4,7 @@ from secml.figure import CFigure
 from secml.ml.classifiers.reject import CClassifierRejectThreshold, CClassifierDNR
 from secml.ml.peval.metrics import CMetricAccuracy, CMetricAccuracyReject
 
+from mnist.adv_reg_dnn import AdvNormRegClf, adv_mnist_cnn
 from mnist.fit_dnn import get_datasets
 from mnist.rbf_net import CClassifierRBFNetwork, RBFNetOnDNN
 from mnist.deep_rbf_net import CClassifierDeepRBFNetwork, DeepRBFNetOnDNN, Stack
@@ -12,7 +13,7 @@ from wb_dnr_surrogate import CClassifierDNRSurrogate
 from wb_nr_surrogate import CClassifierRejectSurrogate
 
 # TODO: Set this!
-CLF = 'rbf_net_sigma_3.0'
+CLF = 'adv_reg_dnn_sigma_0.01'
 USE_SMOOTHING = False
 N_SAMPLES = 100
 N_PLOTS = 10
@@ -36,6 +37,10 @@ elif CLF == 'dnr' or CLF == 'tnr':
 elif "rbf_net" in CLF:
     # DEBUG: DUPLICATED CODE TO AVOID SMOOTHING
     clf = CClassifierRejectThreshold.load(CLF + '.gz')
+elif "adv_reg_dnn" in CLF:
+    # Fit DNN
+    clf = adv_mnist_cnn()
+    clf.load_model(CLF + '.pkl')
 else:
     raise ValueError("Unknown classifier!")
 # clf.verbose = 2     # DEBUG

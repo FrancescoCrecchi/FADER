@@ -1,5 +1,5 @@
 import numpy as np
-from secml.adv.attacks import CAttackEvasionPGDExp
+from secml.adv.attacks import CAttackEvasionPGDExp, CAttackEvasionPGD
 from secml.array import CArray
 from secml.ml.classifiers.reject import CClassifierRejectThreshold, CClassifierDNR
 from secml.ml.peval.metrics import CMetricAccuracy
@@ -8,11 +8,12 @@ from mnist.deep_rbf_net import CClassifierDeepRBFNetwork, DeepRBFNetOnDNN
 from mnist.attack_dnn import security_evaluation
 from mnist.fit_dnn import get_datasets
 
-CLF = "rbf_net"
-CLFS = ['{}_sigma_{:.1f}'.format(CLF, sigma) for sigma in np.arange(4, dtype=float)]
+CLFS = ['adv_reg_cnn']
+# CLFS = ['{}_sigma_{:.1f}'.format(CLF, sigma) for sigma in np.arange(4, dtype=float)]
 # USE_DOUBLE_INIT = True
 
 N_SAMPLES = 100     # TODO: restore full dataset
+ITER = 3
 if __name__ == '__main__':
     random_state = 999
     tr, _, ts = get_datasets(random_state)
@@ -21,8 +22,11 @@ if __name__ == '__main__':
 
         print("- Attacking ", _clf)
 
-        # Load attack
-        pgd_attack = CAttackEvasionPGDExp.load(_clf + '_wb_attack.gz')
+        if _clf == 'dnn':
+            pgd_attack = CAttackEvasionPGD.load(_clf + '_attack.gz')
+        else:
+            # Load attack
+            pgd_attack = CAttackEvasionPGDExp.load(_clf + '_wb_attack.gz')
 
         # Check test performance
         clf = pgd_attack.surrogate_classifier
@@ -30,9 +34,15 @@ if __name__ == '__main__':
         acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
         print("Model Accuracy: {}".format(acc))
 
-        # "Used to perturb all test samples"
-        eps = CArray.arange(start=0, step=0.5, stop=5.1)
-        sec_eval = security_evaluation(pgd_attack, ts[:N_SAMPLES, :], eps)
+        for it in range(ITER):
+            print(" - It", str(it))
+            # Select a sample of ts data
+            it_idxs = CArray.randsample(ts.X.shape[0], shape=N_SAMPLES, random_state=random_state+it)
+            ts_sample = ts[it_idxs, :]
 
-        # Save to disk
-        sec_eval.save(_clf+'_wb_seval')
+            # "Used to perturb all test samples"
+            eps = CArray.arange(start=0, step=0.5, stop=5.1)
+            sec_eval = security_evaluation(pgd_attack, ts_sample, eps)
+
+            # Save to disk
+            sec_eval.save(_clf+'_wb_seval_it_'+str(it))

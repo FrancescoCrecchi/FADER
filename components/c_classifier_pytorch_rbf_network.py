@@ -1,18 +1,34 @@
+import math
 import numpy as np
+
 import torch
+from torch import nn, optim
+from torch.autograd import grad
+
 from secml.array import CArray
 from secml.figure import CFigure
 from secml.ml import CClassifierPyTorch, CNormalizerMinMax
-from torch import nn, optim
-from torch.autograd import grad
 
 from components.rbf_network import RBFNetwork
 
 
 def grad_norm(loss, inputs):
-    g = grad(loss, inputs, retain_graph=True)[0] #* bs
-    norm = g.norm(2, 1).mean()
-    return norm
+    bs = inputs.size(0)
+    g = grad(loss, inputs, retain_graph=True)[0] * bs
+    g = g.view(bs, -1)
+    norm2 = g.norm(2, 1).mean()
+    return norm2
+
+
+def gPenalty(inputs, loss, lam, q):
+    # Gradient penalty
+    bs, c, h, w = inputs.size()
+    d_in = c * h * w
+    g = grad(loss, inputs, create_graph=True)[0] * bs
+    g = g.view(bs, -1)
+    qnorms = g.norm(q, 1).mean()
+    lam = lam * math.pow(d_in, 1. - 1. / q)
+    return lam * qnorms.mean() / 2.
 
 
 class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
@@ -65,19 +81,18 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
 
         if self._history is None: # FIRST RUN
             tr_loss, vl_loss = [], []
-            xentr_loss, reg_loss, weight_decay = [], [], []
+            xentr_loss, gnorm2, reg, weight_decay = [], [], [], []
             # HACK: TRACKING PROTOTYPES
             if self.track_prototypes:
                 prototypes = [self.prototypes.copy()]
         else:
             tr_loss, vl_loss = self._history['tr_loss'], self._history['vl_loss']
-            xentr_loss, reg_loss, weight_decay = self._history['xentr_loss'], self._history['reg_loss'], self._history['weight_decay']
+            xentr_loss, gnorm2, reg, weight_decay = self._history['xentr_loss'], self._history['grad_norm'], self._history['reg'], self._history['weight_decay']
             prototypes = self._prototypes
 
         for epoch in range(self._epochs):
-            train_loss = 0.
+            train_loss = xentr = grad_norm2 = cum_penalty = 0.
             batches = 0
-            _xentr, _reg = 0., 0.
             for data in train_loader:
                 batches += 1
                 self._optimizer.zero_grad()
@@ -89,25 +104,36 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                 inputs.requires_grad = True
                 outputs = self._model(inputs)
                 loss = self._loss(outputs, labels)
-                # HACK: GRAD NORM REGULARIZATION HERE!
-                reg = grad_norm(loss, inputs)
-                # # HACK: LOGGING LOSS COMPONENTS
-                _xentr += loss.item()
-                _reg += reg.item()
 
-                loss += self._sigma * reg
+                # Logging
+                xentr += loss.item()
+                grad_norm2 += grad_norm(loss, inputs).item()
+
+                # HACK: Gradient norm regularization
+                if self._sigma > 0:
+                    penalty = gPenalty(inputs, loss, self._sigma, 2)
+                    loss += penalty
+                    cum_penalty += penalty.item()
                 loss.backward()
                 self._optimizer.step()
                 # Accumulate loss
                 train_loss += loss.item()
 
             # Mean across batches
-            train_loss /= batches
-            _xentr /= batches
-            _reg /= batches
+            train_loss /= (batches+1)
+            xentr /= (batches+1)
+            grad_norm2 /= (batches+1)
+            cum_penalty /= (batches + 1)
+
+            self.logger.debug(
+                "[DEBUG] Epoch {} -> loss: {:.2e} (xentr:{:.3e}, grad_norm2:{:.3e}, penalty:{:.3e})".format(epoch + 1,
+                                                                                                            train_loss,
+                                                                                                            xentr,
+                                                                                                            grad_norm2,
+                                                                                                            cum_penalty))
 
             # print statistics
-            if epoch % 5 == 0:
+            if epoch % 10 == 0:
 
                 # HACK: TRACKING PROTOTYPES
                 if self.track_prototypes:
@@ -133,18 +159,19 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                     # Update curves
                     tr_loss.append(train_loss)
                     vl_loss.append(vali_loss)
-                    xentr_loss.append(_xentr)
-                    reg_loss.append(_reg)
+                    xentr_loss.append(xentr)
+                    gnorm2.append(grad_norm2)
+                    reg.append(cum_penalty)
                     weight_decay.append(list(self._model.rbfnet.classifier.parameters())[0].norm(2).item())
 
                     # Logging
-                    self.logger.info('[epoch: %d] TR loss: %.3e - VL loss: %.3e' % (epoch, tr_loss[-1], vl_loss[-1]))
+                    self.logger.info('[epoch: %d] TR loss: %.3e - VL loss: %.3e' % (epoch+1, tr_loss[-1], vl_loss[-1]))
                     self._model.train()  # restore training mode
                 else:
                     # Update curves
                     tr_loss.append(train_loss)
                     # Logging
-                    self.logger.info('[epoch: %d] TR loss: %.3f' % (epoch, tr_loss[-1]))
+                    self.logger.info('[epoch: %d] TR loss: %.3f' % (epoch+1, tr_loss[-1]))
 
             if self._optimizer_scheduler is not None:
                 self._optimizer_scheduler.step()
@@ -160,7 +187,8 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
             'tr_loss': tr_loss,
             'vl_loss': vl_loss,
             'xentr_loss': xentr_loss,
-            'reg_loss': reg_loss,
+            'grad_norm': gnorm2,
+            'penalty': reg,
             'weight_decay': weight_decay
         }
 
