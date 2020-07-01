@@ -48,8 +48,9 @@ def plot_train_curves(history, sigma):
     fig.sp.plot(history['tr_loss'], label='TR', marker="o")
     fig.sp.plot(history['vl_loss'], label='VL', marker="o")
     fig.sp.plot(history['xentr_loss'], label='xentr', marker="o")
-    fig.sp.plot(history['reg_loss'], label='reg', marker="o")
-    fig.sp.plot(history['weight_decay'], label='decay', marker="o")
+    fig.sp.plot(history['grad_norm'], label='g_norm2', marker="o")
+    # fig.sp.plot(history['weight_decay'], label='decay', marker="o")
+    fig.sp.plot(history['penalty'], label='penalty', marker="o")
     fig.sp.title("Training Curves - Sigma: {}".format(sigma))
     fig.sp.legend()
     fig.sp.grid()
@@ -78,8 +79,9 @@ class RBFNetOnDNN(nn.Module):
                 n_feats.append(np.prod(self._dnn_activations[layer].shape[1:]))
         # n_feats =s [np.prod(list(self._dnn_activations[l].shape[1:])) for l in self._layers]
         self.rbfnet = RBFNetwork(n_feats, n_hiddens, n_classes)
-        # HACK: FIX BETAS
-        self.rbfnet.train_betas = False
+        # # HACK: FIX BETAS
+        # self.rbfnet.betas = 0.1
+        # self.rbfnet.train_betas = False
 
     def _register_hooks(self):
         # ========= Setting hooks =========
@@ -170,8 +172,9 @@ class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
     # TODO: Expose Betas
 
 
-SIGMA = 0.0         # HACK: REGULARIZATION KNOB
-EPOCHS = 30
+SIGMA = 0.       # HACK: REGULARIZATION KNOB
+EPOCHS = 40
+BATCH_SIZE = 128
 
 N_TRAIN, N_TEST = 10000, 1000
 if __name__ == '__main__':
@@ -202,7 +205,7 @@ if __name__ == '__main__':
     rbf_net = CClassifierRBFNetwork(dnn, layers,
                                     n_hiddens=n_hiddens,
                                     epochs=EPOCHS,
-                                    batch_size=32,
+                                    batch_size=BATCH_SIZE,
                                     validation_data=vl_sample,
                                     sigma=SIGMA,  # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
                                     random_state=random_state)
@@ -214,19 +217,19 @@ if __name__ == '__main__':
     rbf_net.prototypes = proto
 
     # Fit DNR
-    rbf_net.verbose = 1  # DEBUG
+    rbf_net.verbose = 2  # DEBUG
     rbf_net.fit(tr_sample.X, tr_sample.Y)
     rbf_net.verbose = 0
 
     # Plot training curves
     fig = plot_train_curves(rbf_net._history, SIGMA)
-    fig.savefig("rbf_net_train_curves.png")
+    fig.savefig("rbf_net_train_sigma_{:.3f}_curves.png".format(SIGMA))
 
-    # Check test performance
-    y_pred = rbf_net.predict(ts.X, return_decision_function=False)
-    acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
-    print("RBFNet Accuracy: {}".format(acc))
-
+    # # Check test performance
+    # y_pred = rbf_net.predict(ts.X, return_decision_function=False)
+    # acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
+    # print("RBFNet Accuracy: {}".format(acc))
+    #
     # # We can now create a classifier with reject
     # clf_rej = CClassifierRejectThreshold(rbf_net, 0.)
     #
