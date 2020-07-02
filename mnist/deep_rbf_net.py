@@ -1,150 +1,135 @@
-import numpy as np
 import torch
+from secml.array import CArray
+from secml.figure import CFigure
+from secml.ml import CClassifier, CNormalizerDNN
+from secml.ml.peval.metrics import CMetricAccuracy
 from torch import nn, optim
 
-from secml.array import CArray
-from secml.ml.classifiers.pytorch.c_classifier_pytorch import get_layers
-from secml.ml.classifiers.reject import CClassifierRejectThreshold
-from secml.ml.peval.metrics import CMetricAccuracy
-
-from components.rbf_network import RBFNetwork
 from components.c_classifier_pytorch_rbf_network import CClassifierPyTorchRBFNetwork
-
+from components.deep_rbf_net import DeepRBFNetwork
 from mnist.cnn_mnist import cnn_mnist_model
 from mnist.fit_dnn import get_datasets
+from mnist.rbf_net import CClassifierRejectRBFNet
 
 
-class Stack(nn.Module):
-
-    def __init__(self):
-        super(Stack, self).__init__()
-
-    def forward(self, iterable, axis):
-        x = torch.stack(iterable, axis)
-        return x
-
-
-class DeepRBFNetOnDNN(nn.Module):
-
-    def __init__(self, dnn, layers, input_shape, n_classes, n_hiddens):
-        super(DeepRBFNetOnDNN, self).__init__()
-        self._layers = layers
-        self._n_hiddens = n_hiddens
-        self._n_classes = n_classes
-        # DNN
-        self.dnn = dnn
-        # Freeze DNN layers (assuming pretrained)
-        for param in self.dnn.parameters():
-            param.requires_grad = False
-        self._register_hooks()
-        # RBFNet
-        # Setting layer_clfs
-        self._layer_clfs = nn.ModuleDict()
-        # In order to instantiate correctly the RBF module we need to compute the input size
-        # we can do this by running a fake sample through the input and looking to the activations sizes
-        self._device = next(self.dnn.parameters()).device
-        _ = self.dnn(torch.rand(tuple([1] + list(input_shape))).to(self._device))
-        i = 0
-        for name, layer in get_layers(self.dnn):
-            if name in self._layers:
-                n_feats = np.prod(self._dnn_activations[layer].shape[1:]).item()
-                rbfnet = RBFNetwork(n_feats, self._n_hiddens[i], n_classes)
-                # HACK: FIX BETAS
-                rbfnet.train_betas = False
-                self._layer_clfs[name] = rbfnet
-                i += 1
-        self._stack = Stack()
-        # Set combiner on top
-        assert i > 0, "Something wrong in RBFNet layer_clf init!"
-        self._combiner = nn.ModuleList()
-        for _ in range(n_classes):
-            # 1 combiner per class: RBFUnit + LinearUnit -> Class score
-            rbfnet = RBFNetwork(len(self._layers), 1, 1)
-            # HACK: FIX BETAS
-            rbfnet.train_betas = False
-            self._combiner.append(rbfnet)
-
-    def _register_hooks(self):
-        # ========= Setting hooks =========
-        # FWD >>
-        self._handlers = {}
-        self._dnn_activations = {}
-
-        for name, layer in get_layers(self.dnn):
-            if name in self._layers:
-                self._handlers[name] = layer.register_forward_hook(self.get_activation)
-        # ===============================
-
-    def get_activation(self, module_name, input, output):
-        self._dnn_activations[module_name] = output
-
-    def forward(self, x):
-        _ = self.dnn(x)  # This sets layer activations
-        fx = []
-        for name, layer in get_layers(self.dnn):
-            if name in self._layers:
-                activ = self._dnn_activations[layer]
-                fx.append(self._layer_clfs[name]([activ.view(activ.shape[0], -1)]))
-        fx = self._stack(fx, 2)        # fx.shape=(batch_size, n_classes, n_layers)
-        # Pass through combiner x class
-        out = torch.zeros((x.shape[0], self._n_classes)).to(self._device)
-        for c in range(self._n_classes):
-            out[:, c] = self._combiner[c]([fx[:, c, :]]).squeeze()
-
-        return out
-
-    # def to(self, *args, **kwargs):
-    #     self = super().to(*args, **kwargs)
-    #     self.dnn = self.dnn.to(*args, **kwargs)
-    #     for l in self._layers:
-    #         self._layer_clfs[l] = self._layer_clfs[l].to(*args, **kwargs)
-    #     self._combiner = self._combiner.to(*args, **kwargs)
-    #     return self
+def deep_rbf_network(dnn, layers, n_hiddens=100,
+                     epochs=300, batch_size=32,
+                     validation_data=None, sigma=0.0,
+                     track_prototypes=False, random_state=None):
+    # Use CUDA
+    use_cuda = torch.cuda.is_available()
+    if random_state is not None:
+        torch.manual_seed(random_state)
+    if use_cuda:
+        torch.backends.cudnn.deterministic = True
+    # Computing features sizes
+    n_feats = [CArray(dnn.get_layer_shape(l)[1:]).prod() for l in layers]
+    # RBFNetwork
+    model = DeepRBFNetwork(n_feats, n_hiddens, dnn.n_classes)
+    # Loss & Optimizer
+    loss = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters())  # --> TODO: Expose optimizer params <--
+    # HACK: TRACKING PROTOTYPES
+    return CClassifierPyTorchRBFNetwork(model,
+                                        loss=loss,
+                                        optimizer=optimizer,
+                                        input_shape=(sum(n_feats, )),
+                                        epochs=epochs,
+                                        batch_size=batch_size,
+                                        validation_data=validation_data,
+                                        track_prototypes=track_prototypes,
+                                        sigma=sigma,
+                                        random_state=random_state)
 
 
-class CClassifierDeepRBFNetwork(CClassifierPyTorchRBFNetwork):
+class CClassifierDeepRBFNetwork(CClassifier):
 
     def __init__(self, dnn, layers, n_hiddens=100,
                  epochs=300, batch_size=32,
-                 lr=1e-3,
                  validation_data=None,
-                 sigma=0.,
+                 sigma=0.0,  # DEFAULT: No regularization!
                  track_prototypes=False,
                  random_state=None):
-
         # Param checking
         if isinstance(n_hiddens, int):
-            n_hiddens = [n_hiddens] * (len(layers))  # Taking care of the combiner..
+            n_hiddens = [n_hiddens] * len(layers)
         self._n_hiddens = n_hiddens
 
-        # DeepRBFNetOnDNN (TODO: pass other params)
-        model = DeepRBFNetOnDNN(dnn.model, layers, dnn.input_shape, dnn.n_classes, self._n_hiddens)
-        # Loss & Optimizer
-        loss = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters(), lr=lr)  # --> TODO: Expose optimizer params <--
-        super(CClassifierDeepRBFNetwork, self).__init__(model,
-                                                        loss=loss,
-                                                        optimizer=optimizer,
-                                                        input_shape=dnn.input_shape,
-                                                        epochs=epochs,
-                                                        batch_size=batch_size,
-                                                        validation_data=validation_data,
-                                                        track_prototypes=track_prototypes,
-                                                        sigma=sigma,
-                                                        random_state=random_state)
+        # RBF Network
+        self._clf = deep_rbf_network(dnn, layers, n_hiddens, epochs, batch_size, validation_data, sigma, track_prototypes, random_state)
+        super(CClassifierDeepRBFNetwork, self).__init__()
 
-        # Internals
         self._layers = layers
-        self._n_classes = dnn.classes.size
+        self._features_extractors = {}
+        for layer in self._layers:
+            self._features_extractors[layer] = CNormalizerDNN(dnn, layer)
+
+        # Utils
+        self.input_shape = dnn.input_shape
+        self._classes = dnn.classes
+        self._num_features = CArray([CArray(dnn.get_layer_shape(l)[1:]).prod() for l in layers])
+        self._device = self._clf._device
+
+
+    @property
+    def verbose(self):
+        return self._clf.verbose
+
+    @verbose.setter
+    def verbose(self, value):
+        self._clf.verbose = value
+
+    def _create_scores_dataset(self, x):
+        caching = self._cached_x is not None
+
+        # Compute layer representations
+        concat_scores = CArray.zeros(shape=(x.shape[0], self._num_features.sum()))
+        start = 0
+        for i, l in enumerate(self._layers):
+            out = self._features_extractors[l].forward(x, caching=caching)
+            out = out.reshape((x.shape[0], -1))
+            concat_scores[:, start:start + self._num_features[i].item()] = out
+            start += self._num_features[i].item()
+
+        return concat_scores
+
+    def _fit(self, x, y):
+        x = self._create_scores_dataset(x)
+        if self._clf._validation_data:
+            self._clf._validation_data.X = self._create_scores_dataset(self._clf._validation_data.X)
+        self._clf.fit(x, y)
+        return self
+
+    def _forward(self, x):
+        caching = self._cached_x is not None
+        # Compute internal layer repr.
+        x = self._create_scores_dataset(x)
+        # Pass through RBF network
+        scores = self._clf.forward(x, caching=caching)
+        return scores
+
+    def _backward(self, w):
+        grad = CArray.zeros(self.n_features)
+        # RBF Network Gradient
+        grad_combiner = self._clf.backward(w)
+        # Propagate through NormalizerDNN(s) and accumulate
+        start = 0
+        for i, l in enumerate(self._layers):
+            # backward pass to layer clfs of their respective w
+            grad += self._features_extractors[l].backward(
+                w=grad_combiner[:, start:start + self._num_features[i].item()])
+            start += self._num_features[i].item()
+
+        return grad
 
     @property
     def prototypes(self):
         proto = {'layer_clfs': {}}
         # Layer clfs prototypes
         for l in self._layers:
-            proto['layer_clfs'][l] = self.model._layer_clfs[l].prototypes[0].clone().detach().numpy()
+            proto['layer_clfs'][l] = self._clf.model._layer_clfs[l].prototypes[0].clone().detach().numpy()
         # Combiner prototypes
-        proto['combiner'] = self.model._combiner.prototypes[0].clone().detach().numpy()
+        proto['combiner'] = self._clf.model._combiner.prototypes[0].clone().detach().numpy()
         return proto
 
     @prototypes.setter
@@ -154,49 +139,67 @@ class CClassifierDeepRBFNetwork(CClassifierPyTorchRBFNetwork):
         :param value: Input prototypes vectors
         '''
         # Unpack and reshape
-        x, y = dset.X.tondarray().reshape(-1, *self.input_shape), dset.Y.tondarray()
+        x, y = dset.X, dset.Y
 
-        # Move model to 'device'
-        self.model.to(self._device)
-
-        # Convert to torch.Tensor
-        x_torch = torch.Tensor(x).float().to(self._device)
-
-        # Void run to compute hooks
-        _ = self.model.dnn.forward(x_torch)
-        # Use computed features to setup prototypes
-        i = 0
-        for name, layer in get_layers(self.model.dnn):
-            if name in self._layers:
-                activ = self.model._dnn_activations[layer][:self._n_hiddens[i]]
-                self.model._layer_clfs[name].prototypes = [activ.view(activ.shape[0], -1)]
-                i += 1
+        f_x = self._create_scores_dataset(x)
+        f_x = torch.Tensor(f_x.tondarray()).float().to(self._device)
+        # Unpack to 'layer_clfs'
+        start = 0
+        for i in range(len(self._layers)):
+            self._clf.model._layer_clfs[i].prototypes = [f_x[:n_hiddens[i], start:start+self._num_features[i].item()]]
+            start += self._num_features[i].item()
 
         # Select one sample per class to init. combiner prototypes
-        comb_x = torch.zeros((self._n_classes, *x_torch.shape[1:]))
-        for c in range(self._n_classes):
+        comb_x = CArray.zeros((self.n_classes, x.shape[1]))
+        for c in range(self.n_classes):
             # Selecting the fist one, for simplicity
-            comb_x[c, :] = x_torch[y == c][0]
+            comb_x[c, :] = x[y == c, :][0, :]
 
         # Run dnn on them
-        _ = self.model.dnn.forward(comb_x.to(self._device))
+        f_x = self._create_scores_dataset(comb_x)
+        f_x = torch.Tensor(f_x.tondarray()).float().to(self._device)
+        n_samples = f_x.shape[0]
+
         # Pack activations
         fx = []
-        i = 0
-        for name, layer in get_layers(self.model.dnn):
-            if name in self._layers:
-                activ = self.model._dnn_activations[layer][:self._n_hiddens[i]]
-                out = self.model._layer_clfs[name]([activ.view(activ.shape[0], -1)])
-                fx.append(out)
-                i += 1
+        start = 0
+        for i in range(len(self._layers)):
+            out = self._clf.model._layer_clfs[i](f_x[:, start:start+self._num_features[i].item()].view(n_samples, -1))
+            fx.append(out)
         fx = torch.stack(fx, 2)
-        for c in range(self._n_classes):
-            self.model._combiner[c].prototypes = [fx[c, c, :][None, :]]
+        for c in range(self.n_classes):
+            self._clf.model._combiner[c].prototypes = [fx[c, c, :][None, :]]
+
+    @property
+    def history(self):
+        return self._clf._history
+
+    @property
+    def _grad_requires_forward(self):       # TODO: Do we need this?! (in CClassifierRejectRBFNet)
+        return True
 
     # TODO: Expose Betas
 
 
-SIGMA = 0.0         # HACK: REGULARIZATION KNOB
+# PARAMETERS
+SIGMA = 0.
+EPOCHS = 250
+BATCH_SIZE = 128
+
+
+def plot_train_curves(history, sigma):
+    fig = CFigure()
+    fig.sp.plot(history['tr_loss'], label='TR', marker="o")
+    fig.sp.plot(history['vl_loss'], label='VL', marker="o")
+    fig.sp.plot(history['xentr_loss'], label='xentr', marker="o")
+    fig.sp.plot(history['grad_norm'], label='g_norm2', marker="o")
+    # fig.sp.plot(history['weight_decay'], label='decay', marker="o")
+    fig.sp.plot(history['penalty'], label='penalty', marker="o")
+    fig.sp.title("Training Curves - Sigma: {}".format(sigma))
+    fig.sp.legend()
+    fig.sp.grid()
+    return fig
+
 
 N_TRAIN, N_TEST = 10000, 1000
 if __name__ == '__main__':
@@ -217,42 +220,46 @@ if __name__ == '__main__':
     tr_idxs = CArray.randsample(vl.X.shape[0], shape=N_TRAIN, random_state=random_state)
     tr_sample = vl[tr_idxs, :]
     # HACK: SELECTING VALIDATION DATA (shape=2*N_TEST)
-    ts_idxs = CArray.randsample(ts.X.shape[0], shape=2 * N_TEST, random_state=random_state)
+    ts_idxs = CArray.randsample(ts.X.shape[0], shape=2*N_TEST, random_state=random_state)
     vl_sample = ts[ts_idxs[:N_TEST], :]
     ts_sample = ts[ts_idxs[N_TEST:], :]
 
     # Create DNR
     layers = ['features:relu2', 'features:relu3', 'features:relu4']
     n_hiddens = [250, 250, 50]
-    rbf_net = CClassifierDeepRBFNetwork(dnn, layers,
-                                        n_hiddens=n_hiddens,
-                                        epochs=40,
-                                        batch_size=32,
-                                        validation_data=vl_sample,
-                                        sigma=SIGMA,  # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
-                                        random_state=random_state)
+    deep_rbf_net = CClassifierDeepRBFNetwork(dnn, layers,
+                                             n_hiddens=n_hiddens,
+                                             epochs=EPOCHS,
+                                             batch_size=BATCH_SIZE,
+                                             validation_data=vl_sample,
+                                             sigma=SIGMA,  # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
+                                             random_state=random_state)
 
     # Initialize prototypes with some training samples
-    h = max(n_hiddens[:-1]) + n_hiddens[-1]       # HACK: "Nel piu' ci sta il meno..."
+    h = max(n_hiddens)  # HACK: "Nel piu' ci sta il meno..."
     idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
-    proto = tr_sample[idxs, :]
-    rbf_net.prototypes = proto
+    proto = tr_sample[idxs, :]  # HACK: Needed also Y
+    deep_rbf_net.prototypes = proto
 
     # Fit DNR
-    rbf_net.verbose = 2  # DEBUG
-    rbf_net.fit(tr_sample.X, tr_sample.Y)
-    rbf_net.verbose = 0
+    deep_rbf_net.verbose = 2  # DEBUG
+    deep_rbf_net.fit(tr_sample.X, tr_sample.Y)
+    deep_rbf_net.verbose = 0
+
+    # Plot training curves
+    fig = plot_train_curves(deep_rbf_net.history, SIGMA)
+    fig.savefig("deep_rbf_net_train_sigma_{:.3f}_curves.png".format(SIGMA))
 
     # Check test performance
-    y_pred = rbf_net.predict(ts.X, return_decision_function=False)
+    y_pred = deep_rbf_net.predict(ts.X, return_decision_function=False)
     acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
-    print("RBFNet Accuracy: {}".format(acc))
+    print("DeepRBFNet Accuracy: {}".format(acc))
 
-    # # We can now create a classifier with reject
-    # clf_rej = CClassifierRejectThreshold(rbf_net, 0.)
-    #
-    # # Set threshold (FPR: 10%)
-    # clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
-    #
-    # # Dump to disk
-    # clf_rej.save('deep_rbf_net_sigma_{}'.format(SIGMA))
+    # We can now create a classifier with reject
+    clf_rej = CClassifierRejectRBFNet(deep_rbf_net, 0.)
+
+    # Set threshold (FPR: 10%)
+    clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
+
+    # Dump to disk
+    clf_rej.save('deep_rbf_net_train_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS))
