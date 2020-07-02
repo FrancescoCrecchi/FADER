@@ -6,8 +6,8 @@ from secml.ml.peval.metrics import CMetricAccuracy, CMetricAccuracyReject
 
 from mnist.adv_reg_dnn import AdvNormRegClf, adv_mnist_cnn
 from mnist.fit_dnn import get_datasets
-from mnist.rbf_net import CClassifierRBFNetwork, RBFNetOnDNN
-from mnist.deep_rbf_net import CClassifierDeepRBFNetwork, DeepRBFNetOnDNN, Stack
+from mnist.rbf_net import CClassifierRBFNetwork, CClassifierRejectRBFNet
+from mnist.deep_rbf_net import CClassifierDeepRBFNetwork
 
 from wb_dnr_surrogate import CClassifierDNRSurrogate
 from wb_nr_surrogate import CClassifierRejectSurrogate
@@ -15,8 +15,8 @@ from wb_nr_surrogate import CClassifierRejectSurrogate
 # TODO: Set this!
 CLF = 'adv_reg_dnn_sigma_0.01'
 USE_SMOOTHING = False
-N_SAMPLES = 100
-N_PLOTS = 10
+N_SAMPLES = 10
+N_PLOTS = 4
 
 random_state = 999
 _, vl, ts = get_datasets(random_state)
@@ -34,13 +34,13 @@ elif CLF == 'dnr' or CLF == 'tnr':
     clf = CClassifierDNR.load(CLF+'.gz')
     if USE_SMOOTHING:
         clf = CClassifierDNRSurrogate(clf, gamma_smoothing=1000)
-elif "rbf_net" in CLF:
+elif "deep_rbf_net" in CLF:
     # DEBUG: DUPLICATED CODE TO AVOID SMOOTHING
-    clf = CClassifierRejectThreshold.load(CLF + '.gz')
-elif "adv_reg_dnn" in CLF:
-    # Fit DNN
-    clf = adv_mnist_cnn()
-    clf.load_model(CLF + '.pkl')
+    clf = CClassifierRejectRBFNet.load(CLF + '.gz')
+# elif "adv_reg_dnn" in CLF:
+#     # Fit DNN
+#     clf = adv_mnist_cnn()
+#     clf.load_model(CLF + '.pkl')
 else:
     raise ValueError("Unknown classifier!")
 # clf.verbose = 2     # DEBUG

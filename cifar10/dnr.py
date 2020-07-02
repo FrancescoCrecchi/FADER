@@ -57,6 +57,7 @@ if __name__ == '__main__':
     # Fit DNR
     dnr.verbose = 2     # DEBUG
     dnr.fit(tr_sample.X, tr_sample.Y)
+    dnr.verbose = 0
 
     # Check test performance
     y_pred = dnr.predict(ts.X, return_decision_function=False)

@@ -8,7 +8,7 @@ from secml.ml import CNormalizerMinMax, CClassifier, CNormalizerDNN
 from secml.ml.peval.metrics import CMetricAccuracy
 
 from components.torch_nn import MLPytorch
-from mnist.deep_rbf_net import CClassifierDeepRBFNetwork
+from components.deep_rbf_net import CClassifierDeepRBFNetwork
 from mnist.rbf_net import CClassifierRBFNetwork, plot_train_curves
 
 SIGMA = 0.0 # REGULARIZATION KNOB
