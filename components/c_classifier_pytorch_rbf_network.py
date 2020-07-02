@@ -1,13 +1,11 @@
-import math
 import numpy as np
-
 import torch
 from torch import nn, optim
 from torch.autograd import grad
 
 from secml.array import CArray
 from secml.figure import CFigure
-from secml.ml import CClassifierPyTorch, CNormalizerMinMax
+from secml.ml import CClassifierPyTorch, CNormalizerMinMax, CClassifier
 
 from components.rbf_network import RBFNetwork
 
@@ -22,11 +20,11 @@ def grad_norm(loss, inputs):
 
 def gPenalty(inputs, loss, lam, q):
     # Gradient penalty
-    bs, d_in = inputs.size()
-    g = grad(loss, inputs, create_graph=True)[0] * bs
+    # bs, d_in = inputs.size()
+    g = grad(loss, inputs, retain_graph=True)[0] # * bs
     qnorms = g.norm(q, 1)
-    lam = lam * math.pow(d_in, 1. - 1. / q)
-    return lam * qnorms.mean() / 2.
+    # lam = lam * math.pow(d_in, 1. - 1. / q)
+    return lam * qnorms.mean() #/ 2.
 
 
 class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
@@ -85,8 +83,9 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                 prototypes = [[p.clone().detach().cpu().numpy() for p in self.model.prototypes]]
         else:
             tr_loss, vl_loss = self._history['tr_loss'], self._history['vl_loss']
-            xentr_loss, gnorm2, reg, weight_decay = self._history['xentr_loss'], self._history['grad_norm'], self._history['reg'], self._history['weight_decay']
+            xentr_loss, gnorm2, reg, weight_decay = self._history['xentr_loss'], self._history['grad_norm'], self._history['penalty'], self._history['weight_decay']
             prototypes = self._prototypes
+
 
         for epoch in range(self._epochs):
             train_loss = xentr = grad_norm2 = cum_penalty = 0.
@@ -109,7 +108,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                 # HACK: Gradient norm regularization
                 if self._sigma > 0:
                     penalty = gPenalty(inputs, loss, self._sigma, 2)
-                    loss += penalty
+                    loss += penalty.item()
                     cum_penalty += penalty.item()
                 loss.backward()
                 self._optimizer.step()
@@ -167,7 +166,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                 xentr_loss.append(xentr)
                 gnorm2.append(grad_norm2)
                 reg.append(cum_penalty)
-                weight_decay.append(list(self.model.classifier.parameters())[0].norm(2).item())
+                # weight_decay.append(list(self.model.classifier.parameters())[0].norm(2).item())
 
             if self._optimizer_scheduler is not None:
                 self._optimizer_scheduler.step()
@@ -191,8 +190,53 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
         return self._model
 
 
-SIGMA = 1.0
-EPOCHS = 300
+def plot_decision_function(sp, clf, c, plot_background=True, levels=None,
+                          grid_limits=None, n_grid_points=30, cmap=None):
+
+    if not isinstance(clf, CClassifier):
+        raise TypeError("'clf' must be an instance of `CClassifier`.")
+
+    if cmap is None:
+        if clf.n_classes <= 6:
+            colors = ['blue', 'red', 'lightgreen', 'black', 'gray', 'cyan']
+            cmap = colors[:clf.n_classes]
+        else:
+            cmap = 'jet'
+
+    if levels is None:
+        levels = CArray.arange(0.5, clf.n_classes).tolist()
+
+    # DEBUG: FC wrong class in plots!
+
+    # f = None
+    # if issubclass(type(clf), CClassifierReject):
+    #     def fun_rej(x):
+    #         y_pred = clf.predict(x)
+    #         # Restore as 'n+1' the rejection class
+    #         y_pred[y_pred == -1] = clf.n_classes - 1
+    #         return y_pred
+    #
+    #     f = fun_rej
+    # else:
+    #     f = clf.predict
+    f = lambda x: clf.decision_function(x)[:, c]
+
+    sp.plot_fun(func=f,  # clf.predict,
+                  multipoint=True,
+                  colorbar=False,
+                  n_colors=clf.n_classes,
+                  cmap=cmap,
+                  levels=levels,
+                  plot_background=plot_background,
+                  grid_limits=grid_limits,
+                  n_grid_points=n_grid_points,
+                  alpha=0.5)
+
+    sp.apply_params_clf()
+
+
+SIGMA = 10.0
+EPOCHS = 150
 BATCH_SIZE = 32
 if __name__ == '__main__':
     random_state = 999
@@ -210,8 +254,13 @@ if __name__ == '__main__':
                              n_samples=n_samples,
                              random_state=random_state).load()
 
+    # Select 30K samples to train DNN
+    from secml.data.splitter import CTrainTestSplit
+    tr, ts = CTrainTestSplit(train_size=1000, random_state=random_state).split(dataset)
+
     nmz = CNormalizerMinMax()
-    dataset.X = nmz.fit_transform(dataset.X)
+    tr.X = nmz.fit_transform(tr.X)
+    ts.X = nmz.transform(ts.X)
 
     n_feats = dataset.X.shape[1]
 
@@ -229,15 +278,15 @@ if __name__ == '__main__':
     # RBFNetwork
     rbf_net = RBFNetwork(n_feats, n_hiddens, n_classes)
     # # HACK: FIXING BETA
-    # rbf_net.betas = 10
+    # rbf_net.betas = 1.0
     # rbf_net.train_betas = False
-    # # HACK: SETTING PROTOTYPES
-    # prototypes = CArray.zeros((N_PROTO_PER_CLASS * dataset.num_classes, n_features))
-    # for i in range(dataset.num_classes):
-    #     xi = dataset.X[dataset.Y == i, :]
-    #     proto = xi[CArray.randsample(xi.shape[0], shape=N_PROTO_PER_CLASS), :]
-    #     prototypes[i*N_PROTO_PER_CLASS:(i+1)*N_PROTO_PER_CLASS, :] = proto
-    # rbf_net.prototypes = [torch.Tensor(prototypes.tondarray())]
+    # HACK: SETTING PROTOTYPES
+    prototypes = CArray.zeros((N_PROTO_PER_CLASS * dataset.num_classes, n_features))
+    for i in range(tr.num_classes):
+        xi = tr.X[tr.Y == i, :]
+        proto = xi[CArray.randsample(xi.shape[0], shape=N_PROTO_PER_CLASS), :]
+        prototypes[i*N_PROTO_PER_CLASS:(i+1)*N_PROTO_PER_CLASS, :] = proto
+    rbf_net.prototypes = [torch.Tensor(prototypes.tondarray())]
 
     # Loss & Optimizer
     loss = nn.CrossEntropyLoss()
@@ -254,27 +303,37 @@ if __name__ == '__main__':
 
     # Fit
     clf.verbose = 2
-    clf.fit(dataset.X, dataset.Y)
+    clf.fit(tr.X, tr.Y)
     clf.verbose = 0
 
-    # Plot training curves
-    from mnist.rbf_net import plot_train_curves
-    fig = plot_train_curves(clf._history, SIGMA)
-    fig.savefig("c_classifier_rbf_network_curves.png")
+    # # Plot training curves
+    # from mnist.rbf_net import plot_train_curves
+    # fig = plot_train_curves(clf._history, SIGMA)
+    # fig.savefig("c_classifier_rbf_network_curves_SIGMA_{:.3e}.png".format(SIGMA))
 
-    # Track prototypes
-    prototypes = np.array(clf._prototypes).squeeze()   # shape = (n_tracks, n_hiddens, n_feats)
-    prototypes = [CArray(prototypes[:, i, :]) for i in range(prototypes.shape[1])]
+    # # Track prototypes
+    # prototypes = np.array(clf._prototypes).squeeze()   # shape = (n_tracks, n_hiddens, n_feats)
+    # prototypes = [CArray(prototypes[:, i, :]) for i in range(prototypes.shape[1])]
+
+    # Wrap in a CClassifierRejectThreshold
+    from secml.ml.classifiers.reject import CClassifierRejectThreshold
+    clf_rej = CClassifierRejectThreshold(clf, 0.)
+    clf_rej.threshold = clf_rej.compute_threshold(0.1, ts)
 
     # Test plot
-    fig = CFigure()
-    fig.sp.plot_ds(dataset)
-    fig.sp.plot_decision_regions(clf, n_grid_points=100, grid_limits=[(-0.25, 1), (-0.25, 1)] )
-    # Plot prototypes
-    for proto in prototypes:
-        fig.sp.plot_path(proto)
-    fig.title('RBFNetwork Classifier')
+    fig = CFigure(5, 21)
+    fig.subplot(1, clf_rej.n_classes)
+    for i in range(clf_rej.n_classes):
+        sp = fig.subplot(1, clf_rej.n_classes, i)
+        sp.title("Class %d" % (i-1))
+        sp.plot_ds(tr)
+        sp.plot_decision_regions(clf, n_grid_points=100, grid_limits=[(-2.5, 2.5), (-2, 3.5)], plot_background=False)
+        plot_decision_function(sp, clf_rej, i-1, n_grid_points=100, grid_limits=[(-2.5, 2.5), (-2, 3.5)], cmap='jet')
+        # # Plot prototypes
+        # for proto in prototypes:
+        #     fig.sp.plot_path(proto)
+    fig.title('RBFNetwork Classifier - Sigma: {:.3f}'.format(SIGMA))
     # fig.show()
-    fig.savefig('c_classifier_rbf_network.png')
+    fig.savefig('c_classifier_rbf_network_SIGMA_{:.3e}.png'.format(SIGMA))
 
     print('done?')
