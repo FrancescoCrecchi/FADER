@@ -1,13 +1,10 @@
-import numpy as np
 import torch
 from torch import nn, optim
-
 from secml.array import CArray
-from secml.ml.classifiers.pytorch.c_classifier_pytorch import get_layers
+from secml.figure import CFigure
 from secml.ml import CClassifierPyTorch, CClassifier, CNormalizerDNN
 from secml.ml.classifiers.reject import CClassifierRejectThreshold
 from secml.ml.peval.metrics import CMetricAccuracy
-from secml.figure import CFigure
 
 from components.c_classifier_pytorch_rbf_network import CClassifierPyTorchRBFNetwork
 from components.rbf_network import RBFNetwork
@@ -16,31 +13,147 @@ from mnist.cnn_mnist import cnn_mnist_model
 from mnist.fit_dnn import get_datasets
 
 
-# def rbf_network(dnn, layers, n_hiddens=100, epochs=300, batch_size=32, validation_data=None, sigma=1.0,
-#                 random_state=None):
-#     # Use CUDA
-#     use_cuda = torch.cuda.is_available()
-#     if random_state is not None:
-#         torch.manual_seed(random_state)
-#     if use_cuda:
-#         torch.backends.cudnn.deterministic = True
-#
-#     # RBFNetOnDNN (TODO: pass other params)
-#     model = RBFNetOnDNN(dnn.model, layers, dnn.input_shape, dnn.n_classes, n_hiddens)
-#     # Loss & Optimizer
-#     loss = nn.CrossEntropyLoss()
-#     optimizer = optim.Adam(model.rbfnet.parameters())  # --> TODO: Expose optimizer params <--
-#     # HACK: TRACKING PROTOTYPES
-#     return CClassifierRBFNetwork(model,
-#                                  loss=loss,
-#                                  optimizer=optimizer,
-#                                  input_shape=dnn.input_shape,
-#                                  epochs=epochs,
-#                                  batch_size=batch_size,
-#                                  validation_data=validation_data,
-#                                  # track_prototypes=True,  # DEBUG: PROTOTYPES TRACKING ENABLED
-#                                  # sigma=sigma,
-#                                  random_state=random_state)
+def rbf_network(dnn, layers, n_hiddens=100,
+                epochs=300, batch_size=32,
+                validation_data=None, sigma=0.0,
+                track_prototypes=False, random_state=None):
+    # Use CUDA
+    use_cuda = torch.cuda.is_available()
+    if random_state is not None:
+        torch.manual_seed(random_state)
+    if use_cuda:
+        torch.backends.cudnn.deterministic = True
+    # Computing features sizes
+    n_feats = [CArray(dnn.get_layer_shape(l)[1:]).prod() for l in layers]
+    # RBFNetwork
+    model = RBFNetwork(n_feats, n_hiddens, dnn.n_classes)
+    # Loss & Optimizer
+    loss = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters())  # --> TODO: Expose optimizer params <--
+    # HACK: TRACKING PROTOTYPES
+    return CClassifierPyTorchRBFNetwork(model,
+                                        loss=loss,
+                                        optimizer=optimizer,
+                                        input_shape=(sum(n_feats, )),
+                                        epochs=epochs,
+                                        batch_size=batch_size,
+                                        validation_data=validation_data,
+                                        track_prototypes=track_prototypes,
+                                        sigma=sigma,
+                                        random_state=random_state)
+
+
+class CClassifierRBFNetwork(CClassifier):
+
+    def __init__(self, dnn, layers, n_hiddens=100,
+                 epochs=300, batch_size=32,
+                 validation_data=None,
+                 sigma=0.0,  # DEFAULT: No regularization!
+                 track_prototypes=False,
+                 random_state=None):
+        # Param checking
+        if isinstance(n_hiddens, int):
+            n_hiddens = [n_hiddens] * len(layers)
+        self._n_hiddens = n_hiddens
+
+        # RBF Network
+        self._clf = rbf_network(dnn, layers, n_hiddens, epochs, batch_size, validation_data, sigma, track_prototypes, random_state)
+        super(CClassifierRBFNetwork, self).__init__()
+
+        self._layers = layers
+        self._features_extractors = {}
+        for layer in self._layers:
+            self._features_extractors[layer] = CNormalizerDNN(dnn, layer)
+
+        # Utils
+        self._num_features = CArray([CArray(dnn.get_layer_shape(l)[1:]).prod() for l in layers])
+
+    @property
+    def verbose(self):
+        return self._clf.verbose
+
+    @verbose.setter
+    def verbose(self, value):
+        self._clf.verbose = value
+
+    def _create_scores_dataset(self, x):
+        caching = self._cached_x is not None
+
+        # Compute layer representations
+        concat_scores = CArray.zeros(shape=(x.shape[0], self._num_features.sum()))
+        start = 0
+        for i, l in enumerate(self._layers):
+            out = self._features_extractors[l].forward(x, caching=caching)
+            out = out.reshape((x.shape[0], -1))
+            concat_scores[:, start:start + self._num_features[i].item()] = out
+            start += self._num_features[i].item()
+
+        return concat_scores
+
+    def _fit(self, x, y):
+        x = self._create_scores_dataset(x)
+        if self._clf._validation_data:
+            self._clf._validation_data.X = self._create_scores_dataset(self._clf._validation_data.X)
+        self._clf.fit(x, y)
+        return self
+
+    def _forward(self, x):
+        caching = self._cached_x is not None
+        # Compute internal layer repr.
+        x = self._create_scores_dataset(x)
+        # Pass through RBF network
+        scores = self._clf.forward(x, caching=caching)
+        return scores
+
+    def _backward(self, w):
+        grad = CArray.zeros(self.n_features)
+        # RBF Network Gradient
+        grad_combiner = self._clf.backward(w)
+        # Propagate through NormalizerDNN(s) and accumulate
+        start = 0
+        for i, l in enumerate(self._layers):
+            # backward pass to layer clfs of their respective w
+            grad += self._features_extractors[l].backward(
+                w=grad_combiner[:, start:start + self._num_features[i].item()])
+            start += self._num_features[i].item()
+
+        return grad
+
+    @property
+    def prototypes(self):
+        res = [CArray(proto.clone().detach().cpu().numpy()) for proto in self._clf.prototypes]
+        return res
+
+    @prototypes.setter
+    def prototypes(self, x):
+        proto_feats = []
+        for i, l in enumerate(self._layers):
+            f_x = self._features_extractors[l].transform(x[:self._n_hiddens[i], :])
+            proto_feats.append(torch.Tensor(f_x.tondarray()).to(self._clf._device))
+        self._clf.model.prototypes = proto_feats
+
+    @property
+    def history(self):
+        return self._clf._history
+
+    @property
+    def _grad_requires_forward(self):       # TODO: Do we need this?! (in CClassifierRejectRBFNet)
+        return True
+
+    # TODO: Expose Betas
+
+
+class CClassifierRejectRBFNet(CClassifierRejectThreshold):
+
+    @property
+    def _grad_requires_forward(self):
+        return True
+
+
+# PARAMETERS
+SIGMA = 0.01
+EPOCHS = 250
+BATCH_SIZE = 128
 
 
 def plot_train_curves(history, sigma):
@@ -56,125 +169,6 @@ def plot_train_curves(history, sigma):
     fig.sp.grid()
     return fig
 
-
-class RBFNetOnDNN(nn.Module):
-
-    def __init__(self, dnn, layers, input_shape, n_classes, n_hiddens=100):
-        super(RBFNetOnDNN, self).__init__()
-        self._layers = layers
-        # DNN
-        self.dnn = dnn
-        # Freeze DNN layers (assuming pretrained)
-        for param in self.dnn.parameters():
-            param.requires_grad = False
-        self._register_hooks()
-        # RBFNet
-        # In order to instantiate correctly the RBF module we need to compute the input size
-        # we can do this by running a fake sample through the input and looking to the activations sizes
-        dnn_device = next(self.dnn.parameters()).device
-        _ = self.dnn(torch.rand(tuple([1] + list(input_shape))).to(dnn_device))
-        n_feats = []
-        for name, layer in get_layers(self.dnn):
-            if name in self._layers:
-                n_feats.append(np.prod(self._dnn_activations[layer].shape[1:]))
-        # n_feats =s [np.prod(list(self._dnn_activations[l].shape[1:])) for l in self._layers]
-        self.rbfnet = RBFNetwork(n_feats, n_hiddens, n_classes)
-        # # HACK: FIX BETAS
-        # self.rbfnet.betas = 0.1
-        # self.rbfnet.train_betas = False
-
-    def _register_hooks(self):
-        # ========= Setting hooks =========
-        # FWD >>
-        self._handlers = {}
-        self._dnn_activations = {}
-
-        for name, layer in get_layers(self.dnn):
-            if name in self._layers:
-                self._handlers[name] = layer.register_forward_hook(self.get_activation)
-        # ===============================
-
-    def get_activation(self, module_name, input, output):
-        self._dnn_activations[module_name] = output
-
-    def forward(self, x):
-        _ = self.dnn(x)  # This sets layer activations
-        fx = []
-        for name, layer in get_layers(self.dnn):
-            if name in self._layers:
-                activ = self._dnn_activations[layer]
-                fx.append(activ.view(activ.shape[0], -1))
-        # Passing a list of activations
-        out = self.rbfnet(fx)
-        return out
-
-
-class CClassifierRBFNetwork(CClassifierPyTorchRBFNetwork):
-
-    def __init__(self, dnn, layers, n_hiddens=100,
-                 epochs=300, batch_size=32,
-                 validation_data=None,
-                 sigma=0.0,     # DEFAULT: No regularization!
-                 track_prototypes=False,
-                 random_state=None):
-        # Param checking
-        if isinstance(n_hiddens, int):
-            n_hiddens = [n_hiddens] * len(layers)
-        self._n_hiddens = n_hiddens
-
-        # RBFNetOnDNN (TODO: pass other params)
-        model = RBFNetOnDNN(dnn.model, layers, dnn.input_shape, dnn.n_classes, self._n_hiddens)
-        # Loss & Optimizer
-        loss = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters()) #, weight_decay=1e-3)  # --> TODO: Expose optimizer params <--
-        # optimizer = optim.SGD(model.parameters(), lr=1e-2, weight_decay=1e-2)
-        super(CClassifierRBFNetwork, self).__init__(model,
-                                                    loss=loss,
-                                                    optimizer=optimizer,
-                                                    input_shape=dnn.input_shape,
-                                                    epochs=epochs,
-                                                    batch_size=batch_size,
-                                                    validation_data=validation_data,
-                                                    track_prototypes=track_prototypes,
-                                                    sigma=sigma,
-                                                    random_state=random_state)
-
-        # Internals
-        self._layers = layers
-
-    @property
-    def prototypes(self):
-        res = [CArray(proto.clone().detach().cpu().numpy()) for proto in self.model.rbfnet.prototypes]
-        return res
-
-    @prototypes.setter
-    def prototypes(self, dset):
-
-        # Unpack and reshape
-        x = dset.X.tondarray().reshape(-1, *self.input_shape)
-
-        # Move model to 'device'
-        self.model.to(self._device)
-        # Convert to torch.Tensor
-        x_torch = torch.Tensor(x).float().to(self._device)
-        # Void run to compute hooks
-        _ = self.model.dnn.forward(x_torch)
-        # Use computed features to setup prototypes
-        i = 0
-        fx = []
-        for name, layer in get_layers(self.model.dnn):
-            if name in self._layers:
-                activ = self.model._dnn_activations[layer][:self._n_hiddens[i]]
-                fx.append(activ.view(activ.shape[0], -1))
-                i += 1
-        self.model.rbfnet.prototypes = fx
-
-    # TODO: Expose Betas
-
-
-SIGMA = 0.       # HACK: REGULARIZATION KNOB
-EPOCHS = 40
-BATCH_SIZE = 128
 
 N_TRAIN, N_TEST = 10000, 1000
 if __name__ == '__main__':
@@ -195,7 +189,7 @@ if __name__ == '__main__':
     tr_idxs = CArray.randsample(vl.X.shape[0], shape=N_TRAIN, random_state=random_state)
     tr_sample = vl[tr_idxs, :]
     # HACK: SELECTING VALIDATION DATA (shape=2*N_TEST)
-    ts_idxs = CArray.randsample(ts.X.shape[0], shape=2 * N_TEST, random_state=random_state)
+    ts_idxs = CArray.randsample(ts.X.shape[0], shape=2*N_TEST, random_state=random_state)
     vl_sample = ts[ts_idxs[:N_TEST], :]
     ts_sample = ts[ts_idxs[N_TEST:], :]
 
@@ -207,13 +201,13 @@ if __name__ == '__main__':
                                     epochs=EPOCHS,
                                     batch_size=BATCH_SIZE,
                                     validation_data=vl_sample,
-                                    sigma=SIGMA,  # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
+                                    sigma=SIGMA,              # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
                                     random_state=random_state)
 
     # Initialize prototypes with some training samples
-    h = max(n_hiddens)       # HACK: "Nel piu' ci sta il meno..."
+    h = max(n_hiddens)  # HACK: "Nel piu' ci sta il meno..."
     idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
-    proto = tr_sample[idxs, :]
+    proto = tr_sample.X[idxs, :]
     rbf_net.prototypes = proto
 
     # Fit DNR
@@ -222,19 +216,19 @@ if __name__ == '__main__':
     rbf_net.verbose = 0
 
     # Plot training curves
-    fig = plot_train_curves(rbf_net._history, SIGMA)
+    fig = plot_train_curves(rbf_net.history, SIGMA)
     fig.savefig("rbf_net_train_sigma_{:.3f}_curves.png".format(SIGMA))
 
-    # # Check test performance
-    # y_pred = rbf_net.predict(ts.X, return_decision_function=False)
-    # acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
-    # print("RBFNet Accuracy: {}".format(acc))
-    #
-    # # We can now create a classifier with reject
-    # clf_rej = CClassifierRejectThreshold(rbf_net, 0.)
-    #
-    # # Set threshold (FPR: 10%)
-    # clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
-    #
-    # # Dump to disk
-    # clf_rej.save('rbf_net_sigma_{}_{}'.format(SIGMA, EPOCHS))
+    # Check test performance
+    y_pred = rbf_net.predict(ts.X, return_decision_function=False)
+    acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
+    print("RBFNet Accuracy: {}".format(acc))
+
+    # We can now create a classifier with reject
+    clf_rej = CClassifierRejectRBFNet(rbf_net, 0.)
+
+    # Set threshold (FPR: 10%)
+    clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
+
+    # Dump to disk
+    clf_rej.save('rbf_net_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS))
