@@ -22,11 +22,9 @@ def grad_norm(loss, inputs):
 
 def gPenalty(inputs, loss, lam, q):
     # Gradient penalty
-    bs, c, h, w = inputs.size()
-    d_in = c * h * w
+    bs, d_in = inputs.size()
     g = grad(loss, inputs, create_graph=True)[0] * bs
-    g = g.view(bs, -1)
-    qnorms = g.norm(q, 1).mean()
+    qnorms = g.norm(q, 1)
     lam = lam * math.pow(d_in, 1. - 1. / q)
     return lam * qnorms.mean() / 2.
 
@@ -84,7 +82,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
             xentr_loss, gnorm2, reg, weight_decay = [], [], [], []
             # HACK: TRACKING PROTOTYPES
             if self.track_prototypes:
-                prototypes = [self.prototypes.copy()]
+                prototypes = [[p.clone().detach().cpu().numpy() for p in self.model.prototypes]]
         else:
             tr_loss, vl_loss = self._history['tr_loss'], self._history['vl_loss']
             xentr_loss, gnorm2, reg, weight_decay = self._history['xentr_loss'], self._history['grad_norm'], self._history['reg'], self._history['weight_decay']
@@ -104,7 +102,6 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                 inputs.requires_grad = True
                 outputs = self._model(inputs)
                 loss = self._loss(outputs, labels)
-
                 # Logging
                 xentr += loss.item()
                 grad_norm2 += grad_norm(loss, inputs).item()
@@ -137,7 +134,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
 
                 # HACK: TRACKING PROTOTYPES
                 if self.track_prototypes:
-                    prototypes.append(self.prototypes.copy())
+                    prototypes.append([p.clone().detach().cpu().numpy() for p in self.model.prototypes])
 
                 if self._validation_data is not None:
                     # Compute validation performance
@@ -155,23 +152,22 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                             vali_loss += loss.item()
                         # accumulate
                         vali_loss /= vali_batches
-
-                    # Update curves
-                    tr_loss.append(train_loss)
-                    vl_loss.append(vali_loss)
-                    xentr_loss.append(xentr)
-                    gnorm2.append(grad_norm2)
-                    reg.append(cum_penalty)
-                    weight_decay.append(list(self._model.rbfnet.classifier.parameters())[0].norm(2).item())
+                        # store
+                        vl_loss.append(vali_loss)
 
                     # Logging
-                    self.logger.info('[epoch: %d] TR loss: %.3e - VL loss: %.3e' % (epoch+1, tr_loss[-1], vl_loss[-1]))
+                    self.logger.info('[epoch: %d] TR loss: %.3e - VL loss: %.3e' % (epoch+1, train_loss, vali_loss))
                     self._model.train()  # restore training mode
                 else:
-                    # Update curves
-                    tr_loss.append(train_loss)
                     # Logging
-                    self.logger.info('[epoch: %d] TR loss: %.3f' % (epoch+1, tr_loss[-1]))
+                    self.logger.info('[epoch: %d] TR loss: %.3f' % (epoch+1, train_loss))
+
+                # Update curves
+                tr_loss.append(train_loss)
+                xentr_loss.append(xentr)
+                gnorm2.append(grad_norm2)
+                reg.append(cum_penalty)
+                weight_decay.append(list(self.model.classifier.parameters())[0].norm(2).item())
 
             if self._optimizer_scheduler is not None:
                 self._optimizer_scheduler.step()
@@ -195,6 +191,9 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
         return self._model
 
 
+SIGMA = 1.0
+EPOCHS = 300
+BATCH_SIZE = 32
 if __name__ == '__main__':
     random_state = 999
 
@@ -229,16 +228,16 @@ if __name__ == '__main__':
         torch.backends.cudnn.deterministic = True
     # RBFNetwork
     rbf_net = RBFNetwork(n_feats, n_hiddens, n_classes)
-    # HACK: FIXING BETA
-    rbf_net.betas = 10
-    rbf_net.train_betas = False
-    # HACK: SETTING PROTOTYPES
-    prototypes = CArray.zeros((N_PROTO_PER_CLASS * dataset.num_classes, n_features))
-    for i in range(dataset.num_classes):
-        xi = dataset.X[dataset.Y == i, :]
-        proto = xi[CArray.randsample(xi.shape[0], shape=N_PROTO_PER_CLASS), :]
-        prototypes[i*N_PROTO_PER_CLASS:(i+1)*N_PROTO_PER_CLASS, :] = proto
-    rbf_net.prototypes = [torch.Tensor(prototypes.tondarray())]
+    # # HACK: FIXING BETA
+    # rbf_net.betas = 10
+    # rbf_net.train_betas = False
+    # # HACK: SETTING PROTOTYPES
+    # prototypes = CArray.zeros((N_PROTO_PER_CLASS * dataset.num_classes, n_features))
+    # for i in range(dataset.num_classes):
+    #     xi = dataset.X[dataset.Y == i, :]
+    #     proto = xi[CArray.randsample(xi.shape[0], shape=N_PROTO_PER_CLASS), :]
+    #     prototypes[i*N_PROTO_PER_CLASS:(i+1)*N_PROTO_PER_CLASS, :] = proto
+    # rbf_net.prototypes = [torch.Tensor(prototypes.tondarray())]
 
     # Loss & Optimizer
     loss = nn.CrossEntropyLoss()
@@ -247,16 +246,21 @@ if __name__ == '__main__':
                                        loss=loss,
                                        optimizer=optimizer,
                                        input_shape=(n_feats,),
-                                       epochs=30,
-                                       batch_size=32,
+                                       epochs=EPOCHS,
+                                       batch_size=BATCH_SIZE,
                                        track_prototypes=True,
-                                       # sigma=2.0,
+                                       sigma=SIGMA,
                                        random_state=random_state)
 
     # Fit
-    clf.verbose = 1
+    clf.verbose = 2
     clf.fit(dataset.X, dataset.Y)
     clf.verbose = 0
+
+    # Plot training curves
+    from mnist.rbf_net import plot_train_curves
+    fig = plot_train_curves(clf._history, SIGMA)
+    fig.savefig("c_classifier_rbf_network_curves.png")
 
     # Track prototypes
     prototypes = np.array(clf._prototypes).squeeze()   # shape = (n_tracks, n_hiddens, n_feats)
@@ -270,7 +274,7 @@ if __name__ == '__main__':
     for proto in prototypes:
         fig.sp.plot_path(proto)
     fig.title('RBFNetwork Classifier')
-    fig.show()
-    # fig.savefig('c_classifier_rbf_network.png')
+    # fig.show()
+    fig.savefig('c_classifier_rbf_network.png')
 
     print('done?')

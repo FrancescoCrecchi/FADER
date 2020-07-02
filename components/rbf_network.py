@@ -36,20 +36,21 @@ class RBFNetwork(nn.Module):
         for i in range(n_layers):
             self.rbf_layers.append(rbf.RBF(n_features[i], n_hiddens[i], rbf.gaussian))
         self.classifier = nn.Linear(sum(n_hiddens), n_classes)
-        # self.classifier = nn.Identity()     # DEBUG: RESTORE HERE(!)
 
         # Flags
         self._train_betas = True
         self._train_prototypes = True
 
 
-    def forward(self, x_list):
+    def forward(self, x):
         f_x = []
         # Compute layer embeddings through RBF units
+        start = 0
         for i in range(len(self.rbf_layers)):
-            out = self.rbf_layers[i](x_list[i])
+            out = self.rbf_layers[i](x[:, start:start + self.n_features[i]])
+            start += self.n_features[i]
             f_x.append(out)
-        # Stack
+        # Concatenate
         f_x = torch.cat(f_x, dim=1)
         # Feed through linear layer
         out = self.classifier(f_x)
