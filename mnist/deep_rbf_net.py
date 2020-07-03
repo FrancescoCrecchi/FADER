@@ -150,10 +150,13 @@ class CClassifierDeepRBFNetwork(CClassifier):
             start += self._num_features[i].item()
 
         # Select one sample per class to init. combiner prototypes
-        comb_x = CArray.zeros((self.n_classes, x.shape[1]))
+        n_comb_units = self._n_hiddens[-1]
+        comb_x = CArray.zeros((self.n_classes * n_comb_units, x.shape[1]))
+        start = 0
         for c in range(self.n_classes):
-            # Selecting the fist one, for simplicity
-            comb_x[c, :] = x[y == c, :][0, :]
+            # Selecting the fist ones for each class, for simplicity
+            comb_x[start:start+n_comb_units, :] = x[y == c, :][:n_comb_units, :]
+            start += n_comb_units
 
         # Run dnn on them
         f_x = self._create_scores_dataset(comb_x)
@@ -165,10 +168,15 @@ class CClassifierDeepRBFNetwork(CClassifier):
         start = 0
         for i in range(len(self._layers)):
             out = self._clf.model._layer_clfs[i](f_x[:, start:start+self._num_features[i].item()].view(n_samples, -1))
+            start += self._num_features[i].item()
             fx.append(out)
+        # Stack on 3d dimension
         fx = torch.stack(fx, 2)
+        # Set to combiner prototypes per class
+        start = 0
         for c in range(self.n_classes):
-            self._clf.model._combiner[c].prototypes = [fx[c, c, :][None, :]]
+            self._clf.model._combiner[c].prototypes = [fx[start:start+n_comb_units, c, :]]
+            start += n_comb_units
 
     @property
     def history(self):
@@ -226,7 +234,7 @@ if __name__ == '__main__':
 
     # Create DNR
     layers = ['features:relu2', 'features:relu3', 'features:relu4']
-    n_hiddens = [250, 250, 50]
+    n_hiddens = [250, 250, 50] + [10]  # Combiner init.
     deep_rbf_net = CClassifierDeepRBFNetwork(dnn, layers,
                                              n_hiddens=n_hiddens,
                                              epochs=EPOCHS,

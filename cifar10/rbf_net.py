@@ -8,8 +8,8 @@ from mnist.rbf_net import CClassifierRBFNetwork, plot_train_curves, CClassifierR
 
 # PARAMETERS
 
-SIGMA = 0.
-EPOCHS = 250
+SIGMA = 0.01
+EPOCHS = 1000
 BATCH_SIZE = 128
 
 

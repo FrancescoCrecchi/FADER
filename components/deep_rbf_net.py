@@ -38,8 +38,8 @@ class DeepRBFNetwork(nn.Module):
         # Set combiner on top
         self._combiner = nn.ModuleList()
         for _ in range(n_classes):
-            # 1 combiner per class: RBFUnit + LinearUnit -> Class score
-            rbfnet = RBFNetwork(self._n_layers, 1, 1)
+            # 'n_hiddens[-1]' combiner rbf neurons per class: RBFUnit + LinearUnit -> Class score
+            rbfnet = RBFNetwork(self._n_layers, self.n_hiddens[-1], 1)
             self._combiner.append(rbfnet)
 
         # TODO: FIX BETAS?
@@ -59,11 +59,3 @@ class DeepRBFNetwork(nn.Module):
             out.append(self._combiner[c](f_x[:, c, :]))
         out = torch.cat(out, 1)
         return out
-
-    # def to(self, *args, **kwargs):
-    #     self = super().to(*args, **kwargs)
-    #     for i in range(self._n_layers):
-    #         self._layer_clfs[i] = self._layer_clfs[i].to(*args, **kwargs)
-    #     for i in range(self.n_classes):
-    #         self._combiner[i] = self._combiner[i].to(*args, **kwargs)
-    #     return self

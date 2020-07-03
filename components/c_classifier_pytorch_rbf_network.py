@@ -191,7 +191,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
 
 
 def plot_decision_function(sp, clf, c, plot_background=True, levels=None,
-                          grid_limits=None, n_grid_points=30, cmap=None):
+                          grid_limits=None, n_grid_points=30, cmap=None, colorbar=True):
 
     if not isinstance(clf, CClassifier):
         raise TypeError("'clf' must be an instance of `CClassifier`.")
@@ -223,7 +223,7 @@ def plot_decision_function(sp, clf, c, plot_background=True, levels=None,
 
     sp.plot_fun(func=f,  # clf.predict,
                   multipoint=True,
-                  colorbar=False,
+                  colorbar=colorbar,
                   n_colors=clf.n_classes,
                   cmap=cmap,
                   levels=levels,
@@ -235,15 +235,15 @@ def plot_decision_function(sp, clf, c, plot_background=True, levels=None,
     sp.apply_params_clf()
 
 
-SIGMA = 10.0
-EPOCHS = 150
+SIGMA = 1.0
+EPOCHS = 300
 BATCH_SIZE = 32
 if __name__ == '__main__':
     random_state = 999
 
     n_features = 2  # Number of features
     n_samples = 1250  # Number of samples
-    centers = [[-2, 0], [2, -2], [2, 2]]  # Centers of the clusters
+    centers = [[-4, 0], [4, -4], [4, 4]]  # Centers of the clusters
     cluster_std = 0.8  # Standard deviation of the clusters
 
     from secml.data.loader import CDLRandomBlobs
@@ -306,19 +306,29 @@ if __name__ == '__main__':
     clf.fit(tr.X, tr.Y)
     clf.verbose = 0
 
-    # # Plot training curves
-    # from mnist.rbf_net import plot_train_curves
-    # fig = plot_train_curves(clf._history, SIGMA)
-    # fig.savefig("c_classifier_rbf_network_curves_SIGMA_{:.3e}.png".format(SIGMA))
+    # Plot training curves
+    from mnist.rbf_net import plot_train_curves
+    fig = plot_train_curves(clf._history, SIGMA)
+    fig.savefig("c_classifier_rbf_network_curves_SIGMA_{:.3e}.png".format(SIGMA))
 
-    # # Track prototypes
-    # prototypes = np.array(clf._prototypes).squeeze()   # shape = (n_tracks, n_hiddens, n_feats)
-    # prototypes = [CArray(prototypes[:, i, :]) for i in range(prototypes.shape[1])]
+    # Track prototypes
+    prototypes = np.array(clf._prototypes).squeeze()   # shape = (n_tracks, n_hiddens, n_feats)
+    prototypes = [CArray(prototypes[:, i, :]) for i in range(prototypes.shape[1])]
 
     # Wrap in a CClassifierRejectThreshold
     from secml.ml.classifiers.reject import CClassifierRejectThreshold
     clf_rej = CClassifierRejectThreshold(clf, 0.)
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts)
+
+    # Plot decision regions
+    fig = CFigure()
+    fig.sp.plot_ds(tr)
+    fig.sp.plot_decision_regions(clf_rej, n_grid_points=100, grid_limits=[(-1, 2), (-1, 2)])
+    # Plot prototypes
+    for proto in prototypes:
+        fig.sp.plot_path(proto)
+    fig.title('RBFNetwork Classifier - Sigma: {:.3f}'.format(SIGMA))
+    fig.savefig('c_classifier_rbf_network_SIGMA_{:.3e}_decision_regions.png'.format(SIGMA))
 
     # Test plot
     fig = CFigure(5, 21)
@@ -327,13 +337,13 @@ if __name__ == '__main__':
         sp = fig.subplot(1, clf_rej.n_classes, i)
         sp.title("Class %d" % (i-1))
         sp.plot_ds(tr)
-        sp.plot_decision_regions(clf, n_grid_points=100, grid_limits=[(-2.5, 2.5), (-2, 3.5)], plot_background=False)
-        plot_decision_function(sp, clf_rej, i-1, n_grid_points=100, grid_limits=[(-2.5, 2.5), (-2, 3.5)], cmap='jet')
-        # # Plot prototypes
-        # for proto in prototypes:
-        #     fig.sp.plot_path(proto)
+        sp.plot_decision_regions(clf, n_grid_points=100, grid_limits=[(-1.5, 2.5), (-1, 2.5)], plot_background=False)
+        plot_decision_function(sp, clf_rej, i-1, n_grid_points=100, grid_limits=[(-1.5, 2.5), (-1.5, 2.5)], cmap='jet')
+        # Plot prototypes
+        for proto in prototypes:
+            fig.sp.plot_path(proto)
     fig.title('RBFNetwork Classifier - Sigma: {:.3f}'.format(SIGMA))
     # fig.show()
-    fig.savefig('c_classifier_rbf_network_SIGMA_{:.3e}.png'.format(SIGMA))
+    fig.savefig('c_classifier_rbf_network_SIGMA_{:.3e}_decision_functions.png'.format(SIGMA))
 
     print('done?')
