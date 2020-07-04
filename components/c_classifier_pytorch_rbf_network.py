@@ -21,17 +21,18 @@ def grad_norm(loss, inputs):
 def gPenalty(inputs, loss, lam, q):
     # Gradient penalty
     # bs, d_in = inputs.size()
-    g = grad(loss, inputs, retain_graph=True)[0] # * bs
+    g = grad(loss, inputs, retain_graph=True)[0]  # * bs
     qnorms = g.norm(q, 1)
     # lam = lam * math.pow(d_in, 1. - 1. / q)
-    return lam * qnorms.mean() #/ 2.
+    return lam * qnorms.mean()  # / 2.
 
 
 class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
 
     def __init__(self, model, loss=None, optimizer=None, optimizer_scheduler=None, pretrained=False,
                  pretrained_classes=None, input_shape=None, random_state=None, preprocess=None, softmax_outputs=False,
-                 epochs=10, batch_size=1, n_jobs=1, transform_train=None, validation_data=None, track_prototypes=False, sigma=0.):
+                 epochs=10, batch_size=1, n_jobs=1, transform_train=None, validation_data=None, track_prototypes=False,
+                 sigma=0.):
         super().__init__(model, loss, optimizer, optimizer_scheduler, pretrained, pretrained_classes, input_shape,
                          random_state, preprocess, softmax_outputs, epochs, batch_size, n_jobs, transform_train,
                          validation_data)
@@ -67,7 +68,8 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                              "in order to fit the model.")
 
         train_loader = self._data_loader(x, y, batch_size=self._batch_size,
-                                         num_workers=self.n_jobs - 1, transform=self._transform_train) #, shuffle=True)
+                                         num_workers=self.n_jobs - 1,
+                                         transform=self._transform_train)  # , shuffle=True)
 
         if self._validation_data:
             vali_loader = self._data_loader(self._validation_data.X,
@@ -75,7 +77,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                                             batch_size=self._batch_size,
                                             num_workers=self.n_jobs - 1)
 
-        if self._history is None: # FIRST RUN
+        if self._history is None:  # FIRST RUN
             tr_loss, vl_loss = [], []
             xentr_loss, gnorm2, reg, weight_decay = [], [], [], []
             # HACK: TRACKING PROTOTYPES
@@ -83,9 +85,9 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                 prototypes = [[p.clone().detach().cpu().numpy() for p in self.model.prototypes]]
         else:
             tr_loss, vl_loss = self._history['tr_loss'], self._history['vl_loss']
-            xentr_loss, gnorm2, reg, weight_decay = self._history['xentr_loss'], self._history['grad_norm'], self._history['penalty'], self._history['weight_decay']
+            xentr_loss, gnorm2, reg, weight_decay = self._history['xentr_loss'], self._history['grad_norm'], \
+                                                    self._history['penalty'], self._history['weight_decay']
             prototypes = self._prototypes
-
 
         for epoch in range(self._epochs):
             train_loss = xentr = grad_norm2 = cum_penalty = 0.
@@ -116,17 +118,33 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                 train_loss += loss.item()
 
             # Mean across batches
-            train_loss /= (batches+1)
-            xentr /= (batches+1)
-            grad_norm2 /= (batches+1)
+            train_loss /= (batches + 1)
+            xentr /= (batches + 1)
+            grad_norm2 /= (batches + 1)
             cum_penalty /= (batches + 1)
 
+            # Linear layer weight norm
+            wd = -9999
+            # CClassifierRBFNetwork
+            try:
+                wd = list(self.model.classifier.parameters())[0].norm(2).item()
+            except:
+                pass
+            # # CClassifierDeepRBFNetwork
+            # try:
+            #     wd = list(self.model._combiner.parameters())[0].norm(2).item()
+            # except:
+            #     pass
+
             self.logger.debug(
-                "[DEBUG] Epoch {} -> loss: {:.2e} (xentr:{:.3e}, grad_norm2:{:.3e}, penalty:{:.3e})".format(epoch + 1,
-                                                                                                            train_loss,
-                                                                                                            xentr,
-                                                                                                            grad_norm2,
-                                                                                                            cum_penalty))
+                "[DEBUG] Epoch {} -> loss: {:.2e} (xentr:{:.3e}, grad_norm2:{:.3e}, penalty:{:.3e}, wd: {:.3e})".
+                    format(epoch + 1,
+                           train_loss,
+                           xentr,
+                           grad_norm2,
+                           cum_penalty,
+                           wd
+                           ))
 
             # print statistics
             if epoch % 10 == 0:
@@ -155,18 +173,18 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                         vl_loss.append(vali_loss)
 
                     # Logging
-                    self.logger.info('[epoch: %d] TR loss: %.3e - VL loss: %.3e' % (epoch+1, train_loss, vali_loss))
+                    self.logger.info('[epoch: %d] TR loss: %.3e - VL loss: %.3e' % (epoch + 1, train_loss, vali_loss))
                     self._model.train()  # restore training mode
                 else:
                     # Logging
-                    self.logger.info('[epoch: %d] TR loss: %.3f' % (epoch+1, train_loss))
+                    self.logger.info('[epoch: %d] TR loss: %.3f' % (epoch + 1, train_loss))
 
                 # Update curves
                 tr_loss.append(train_loss)
                 xentr_loss.append(xentr)
                 gnorm2.append(grad_norm2)
                 reg.append(cum_penalty)
-                # weight_decay.append(list(self.model.classifier.parameters())[0].norm(2).item())
+                weight_decay.append(wd)
 
             if self._optimizer_scheduler is not None:
                 self._optimizer_scheduler.step()
@@ -191,8 +209,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
 
 
 def plot_decision_function(sp, clf, c, plot_background=True, levels=None,
-                          grid_limits=None, n_grid_points=30, cmap=None, colorbar=True):
-
+                           grid_limits=None, n_grid_points=30, cmap=None, colorbar=True):
     if not isinstance(clf, CClassifier):
         raise TypeError("'clf' must be an instance of `CClassifier`.")
 
@@ -222,15 +239,15 @@ def plot_decision_function(sp, clf, c, plot_background=True, levels=None,
     f = lambda x: clf.decision_function(x)[:, c]
 
     sp.plot_fun(func=f,  # clf.predict,
-                  multipoint=True,
-                  colorbar=colorbar,
-                  n_colors=clf.n_classes,
-                  cmap=cmap,
-                  levels=levels,
-                  plot_background=plot_background,
-                  grid_limits=grid_limits,
-                  n_grid_points=n_grid_points,
-                  alpha=0.5)
+                multipoint=True,
+                colorbar=colorbar,
+                n_colors=clf.n_classes,
+                cmap=cmap,
+                levels=levels,
+                plot_background=plot_background,
+                grid_limits=grid_limits,
+                n_grid_points=n_grid_points,
+                alpha=0.5)
 
     sp.apply_params_clf()
 
@@ -256,6 +273,7 @@ if __name__ == '__main__':
 
     # Select 30K samples to train DNN
     from secml.data.splitter import CTrainTestSplit
+
     tr, ts = CTrainTestSplit(train_size=1000, random_state=random_state).split(dataset)
 
     nmz = CNormalizerMinMax()
@@ -285,7 +303,7 @@ if __name__ == '__main__':
     for i in range(tr.num_classes):
         xi = tr.X[tr.Y == i, :]
         proto = xi[CArray.randsample(xi.shape[0], shape=N_PROTO_PER_CLASS), :]
-        prototypes[i*N_PROTO_PER_CLASS:(i+1)*N_PROTO_PER_CLASS, :] = proto
+        prototypes[i * N_PROTO_PER_CLASS:(i + 1) * N_PROTO_PER_CLASS, :] = proto
     rbf_net.prototypes = [torch.Tensor(prototypes.tondarray())]
 
     # Loss & Optimizer
@@ -308,15 +326,17 @@ if __name__ == '__main__':
 
     # Plot training curves
     from mnist.rbf_net import plot_train_curves
+
     fig = plot_train_curves(clf._history, SIGMA)
     fig.savefig("c_classifier_rbf_network_curves_SIGMA_{:.3e}.png".format(SIGMA))
 
     # Track prototypes
-    prototypes = np.array(clf._prototypes).squeeze()   # shape = (n_tracks, n_hiddens, n_feats)
+    prototypes = np.array(clf._prototypes).squeeze()  # shape = (n_tracks, n_hiddens, n_feats)
     prototypes = [CArray(prototypes[:, i, :]) for i in range(prototypes.shape[1])]
 
     # Wrap in a CClassifierRejectThreshold
     from secml.ml.classifiers.reject import CClassifierRejectThreshold
+
     clf_rej = CClassifierRejectThreshold(clf, 0.)
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts)
 
@@ -335,10 +355,11 @@ if __name__ == '__main__':
     fig.subplot(1, clf_rej.n_classes)
     for i in range(clf_rej.n_classes):
         sp = fig.subplot(1, clf_rej.n_classes, i)
-        sp.title("Class %d" % (i-1))
+        sp.title("Class %d" % (i - 1))
         sp.plot_ds(tr)
         sp.plot_decision_regions(clf, n_grid_points=100, grid_limits=[(-1.5, 2.5), (-1, 2.5)], plot_background=False)
-        plot_decision_function(sp, clf_rej, i-1, n_grid_points=100, grid_limits=[(-1.5, 2.5), (-1.5, 2.5)], cmap='jet')
+        plot_decision_function(sp, clf_rej, i - 1, n_grid_points=100, grid_limits=[(-1.5, 2.5), (-1.5, 2.5)],
+                               cmap='jet')
         # Plot prototypes
         for proto in prototypes:
             fig.sp.plot_path(proto)

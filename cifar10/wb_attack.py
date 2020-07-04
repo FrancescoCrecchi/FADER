@@ -6,7 +6,7 @@ from secml.ml.peval.metrics import CMetricAccuracy
 from cifar10.attack_dnn import security_evaluation
 from cifar10.fit_dnn import get_datasets
 
-CLFS = ['rbf_net_sigma_0.000_250']
+CLFS = ['rbf_net_sigma_0.000_250_nr_like']
 
 N_SAMPLES = 100     # TODO: restore full dataset
 ITER = 3

@@ -9,7 +9,7 @@ from components.c_classifier_pytorch_rbf_network import CClassifierPyTorchRBFNet
 from components.deep_rbf_net import DeepRBFNetwork
 from mnist.cnn_mnist import cnn_mnist_model
 from mnist.fit_dnn import get_datasets
-from mnist.rbf_net import CClassifierRejectRBFNet
+from mnist.rbf_net import CClassifierRejectRBFNet, plot_train_curves
 
 
 def deep_rbf_network(dnn, layers, n_hiddens=100,
@@ -128,8 +128,8 @@ class CClassifierDeepRBFNetwork(CClassifier):
         # Layer clfs prototypes
         for l in self._layers:
             proto['layer_clfs'][l] = self._clf.model._layer_clfs[l].prototypes[0].clone().detach().numpy()
-        # Combiner prototypes
-        proto['combiner'] = self._clf.model._combiner.prototypes[0].clone().detach().numpy()
+        # # Combiner prototypes
+        # proto['combiner'] = self._clf.model._combiner.prototypes[0].clone().detach().numpy()
         return proto
 
     @prototypes.setter
@@ -146,37 +146,37 @@ class CClassifierDeepRBFNetwork(CClassifier):
         # Unpack to 'layer_clfs'
         start = 0
         for i in range(len(self._layers)):
-            self._clf.model._layer_clfs[i].prototypes = [f_x[:n_hiddens[i], start:start+self._num_features[i].item()]]
+            self._clf.model._layer_clfs[i].prototypes = [f_x[:self._n_hiddens[i], start:start+self._num_features[i].item()]]
             start += self._num_features[i].item()
 
-        # Select one sample per class to init. combiner prototypes
-        n_comb_units = self._n_hiddens[-1]
-        comb_x = CArray.zeros((self.n_classes * n_comb_units, x.shape[1]))
-        start = 0
-        for c in range(self.n_classes):
-            # Selecting the fist ones for each class, for simplicity
-            comb_x[start:start+n_comb_units, :] = x[y == c, :][:n_comb_units, :]
-            start += n_comb_units
-
-        # Run dnn on them
-        f_x = self._create_scores_dataset(comb_x)
-        f_x = torch.Tensor(f_x.tondarray()).float().to(self._device)
-        n_samples = f_x.shape[0]
-
-        # Pack activations
-        fx = []
-        start = 0
-        for i in range(len(self._layers)):
-            out = self._clf.model._layer_clfs[i](f_x[:, start:start+self._num_features[i].item()].view(n_samples, -1))
-            start += self._num_features[i].item()
-            fx.append(out)
-        # Stack on 3d dimension
-        fx = torch.stack(fx, 2)
-        # Set to combiner prototypes per class
-        start = 0
-        for c in range(self.n_classes):
-            self._clf.model._combiner[c].prototypes = [fx[start:start+n_comb_units, c, :]]
-            start += n_comb_units
+        # # Select one sample per class to init. combiner prototypes
+        # n_comb_units = self._n_hiddens[-1]
+        # comb_x = CArray.zeros((self.n_classes * n_comb_units, x.shape[1]))
+        # start = 0
+        # for c in range(self.n_classes):
+        #     # Selecting the fist ones for each class, for simplicity
+        #     comb_x[start:start+n_comb_units, :] = x[y == c, :][:n_comb_units, :]
+        #     start += n_comb_units
+        #
+        # # Run dnn on them
+        # f_x = self._create_scores_dataset(comb_x)
+        # f_x = torch.Tensor(f_x.tondarray()).float().to(self._device)
+        # n_samples = f_x.shape[0]
+        #
+        # # Pack activations
+        # fx = []
+        # start = 0
+        # for i in range(len(self._layers)):
+        #     out = self._clf.model._layer_clfs[i](f_x[:, start:start+self._num_features[i].item()].view(n_samples, -1))
+        #     start += self._num_features[i].item()
+        #     fx.append(out)
+        # # Stack on 3d dimension
+        # fx = torch.stack(fx, 2)
+        # # Set to combiner prototypes per class
+        # start = 0
+        # for c in range(self.n_classes):
+        #     self._clf.model._combiner[c].prototypes = [fx[start:start+n_comb_units, c, :]]
+        #     start += n_comb_units
 
     @property
     def history(self):
@@ -193,20 +193,6 @@ class CClassifierDeepRBFNetwork(CClassifier):
 SIGMA = 0.
 EPOCHS = 250
 BATCH_SIZE = 128
-
-
-def plot_train_curves(history, sigma):
-    fig = CFigure()
-    fig.sp.plot(history['tr_loss'], label='TR', marker="o")
-    fig.sp.plot(history['vl_loss'], label='VL', marker="o")
-    fig.sp.plot(history['xentr_loss'], label='xentr', marker="o")
-    fig.sp.plot(history['grad_norm'], label='g_norm2', marker="o")
-    # fig.sp.plot(history['weight_decay'], label='decay', marker="o")
-    fig.sp.plot(history['penalty'], label='penalty', marker="o")
-    fig.sp.title("Training Curves - Sigma: {}".format(sigma))
-    fig.sp.legend()
-    fig.sp.grid()
-    return fig
 
 
 N_TRAIN, N_TEST = 10000, 1000
@@ -234,7 +220,7 @@ if __name__ == '__main__':
 
     # Create DNR
     layers = ['features:relu2', 'features:relu3', 'features:relu4']
-    n_hiddens = [250, 250, 50] + [10]  # Combiner init.
+    n_hiddens = [250, 250, 50] + [30]  # Combiner init.
     deep_rbf_net = CClassifierDeepRBFNetwork(dnn, layers,
                                              n_hiddens=n_hiddens,
                                              epochs=EPOCHS,

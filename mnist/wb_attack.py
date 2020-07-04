@@ -5,7 +5,7 @@ from secml.ml.peval.metrics import CMetricAccuracy
 from mnist.attack_dnn import security_evaluation
 from mnist.fit_dnn import get_datasets
 
-CLFS = ['adv_reg_cnn']
+CLFS = ['deep_rbf_net_train_sigma_0.000_250']
 # CLFS = ['{}_sigma_{:.1f}'.format(CLF, sigma) for sigma in np.arange(4, dtype=float)]
 # USE_DOUBLE_INIT = True
 

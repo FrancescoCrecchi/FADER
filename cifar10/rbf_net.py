@@ -7,9 +7,8 @@ from cifar10.fit_dnn import get_datasets
 from mnist.rbf_net import CClassifierRBFNetwork, plot_train_curves, CClassifierRejectRBFNet
 
 # PARAMETERS
-
-SIGMA = 0.01
-EPOCHS = 1000
+SIGMA = 0.
+EPOCHS = 250
 BATCH_SIZE = 128
 
 
@@ -37,8 +36,8 @@ if __name__ == '__main__':
     ts_sample = ts[ts_idxs[N_TEST:], :]
 
     # Create DNR
-    layers = ['features:23', 'features:26', 'features:29']
-    n_hiddens = [500, 300, 300]    # TODO: Set this accord
+    layers = ['features:29']        # 'features:23', 'features:26',
+    n_hiddens = [100]               # 4000, 2000,     # TODO: Set this according to DNR features
     rbf_net = CClassifierRBFNetwork(dnn, layers,
                                     n_hiddens=n_hiddens,
                                     epochs=EPOCHS,
@@ -52,6 +51,13 @@ if __name__ == '__main__':
     idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
     proto = tr_sample.X[idxs, :]
     rbf_net.prototypes = proto
+
+    # # 1 prototype per class init.
+    # proto = CArray.zeros((10, tr_sample.X.shape[1]))
+    # for c in range(10):
+    #     proto[c, :] = tr_sample.X[tr_sample.Y == c, :][0, :]
+    # rbf_net.prototypes = proto
+
 
     # Fit DNR
     rbf_net.verbose = 2  # DEBUG
@@ -74,4 +80,4 @@ if __name__ == '__main__':
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
 
     # Dump to disk
-    clf_rej.save('rbf_net_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS))
+    clf_rej.save('rbf_net_sigma_{:.3f}_{}_4x'.format(SIGMA, EPOCHS))

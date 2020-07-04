@@ -6,14 +6,19 @@ from secml.figure import CFigure
 from secml.ml.peval.metrics import CMetricAccuracyReject, CMetricAccuracy
 
 DSET = 'cifar10'
-EVAL_TYPE = 'wb'
+EVAL_TYPE = 'bb'
 # CLFS = ['rbf_net_sigma_{:.1f}'.format(sigma) for sigma in np.arange(4, dtype=float)]
 # CLFS = ['dnn', 'nr', 'dnr'] + CLFS #, 'deep_rbf_net_sigma_1'] #,'tsne_rej', 'tnr']
-# CLFS = ['dnn', 'nr', 'dnr', 'rbf_net_sigma_0_40']
-CLFS = ['dnn', 'adv_reg_cnn']
+# CLFS = ['dnn', 'nr', 'dnr', 'rbf_net_sigma_0.000_30', 'rbf_net_sigma_0.000_250', 'rbf_net_sigma_0.010_250']
+# CLFS = ['dnn', 'nr', 'dnr', 'rbf_net_sigma_0.000_250',  'deep_rbf_net_train_sigma_0.000_250']
+CLFS = ['nr', 'dnr',
+        # 'rbf_net_sigma_0.000_250', 'rbf_net_sigma_0.000_500_1xclass',
+        # 'rbf_net_sigma_0.000_250_4x', 'rbf_net_sigma_0.010_1000']
+        'rbf_net_sigma_0.000_250_nr_like']
+# CLFS = ['dnn', 'adv_reg_cnn']
 N_ITER = 3
-# FNAME = 'all_'+EVAL_TYPE+'_rbf_net' # 'tsne_rej_test_gamma'
-FNAME = 'adv_reg_dnn'
+FNAME = 'all_'+EVAL_TYPE+'_rbf_net_nr_like' # 'tsne_rej_test_gamma'
+# FNAME = 'adv_reg_dnn'
 
 
 # Plot sec_eval with reject percentage
@@ -76,13 +81,17 @@ if __name__ == '__main__':
     # This is done here to make 'markevery' work correctly
 
     for clf in CLFS:
-        sec_evals = []
-        for it in range(N_ITER):
-            # Load sec_eval
-            fname = os.path.join(DSET, clf + '_'+EVAL_TYPE+'_seval_it_'+str(it)+'.gz')
-            if os.path.exists(fname):
-                seval = CSecEval.load(fname)
-                sec_evals.append(seval)
+        # BB SETTINGS
+        sec_evals = [CSecEval.load(os.path.join(DSET, clf + '_'+EVAL_TYPE+'_seval.gz'))]
+
+        # # WB SETTINGS
+        # sec_evals = []
+        # for it in range(N_ITER):
+        #     # Load sec_eval
+        #     fname = os.path.join(DSET, clf + '_'+EVAL_TYPE+'_seval_it_'+str(it)+'.gz')
+        #     if os.path.exists(fname):
+        #         seval = CSecEval.load(fname)
+        #         sec_evals.append(seval)
 
         print(" - Plotting ", clf)
 
