@@ -117,8 +117,8 @@ fig_norej.sp.plot_ds(dataset, colors=['dodgerblue', 'r', 'limegreen'])
 #                            start_style='o', start_facecolor='w',
 #                            final_style='*', final_facecolor='k')
 
-fig_norej.sp.scatter(c0[:, 0], c0[:, 1], s=50, marker='D',
-                     edgecolors='k', zorder=10)
+# fig_norej.sp.scatter(c0[:, 0], c0[:, 1], s=50, marker='D',
+#                      edgecolors='k', zorder=10)
 fig_norej.sp.scatter(centers_final[:, 0], centers_final[:, 1],
                      c='w', s=25, marker='o', linewidths=1,
                      edgecolors='k', zorder=10)
