@@ -21,7 +21,7 @@ def grad_norm(loss, inputs):
 def gPenalty(inputs, loss, lam, q):
     # Gradient penalty
     # bs, d_in = inputs.size()
-    g = grad(loss, inputs, retain_graph=True)[0]  # * bs
+    g = grad(loss, inputs, create_graph=True)[0]  # * bs
     qnorms = g.norm(q, 1)
     # lam = lam * math.pow(d_in, 1. - 1. / q)
     return lam * qnorms.mean()  # / 2.
@@ -130,11 +130,11 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                 wd = list(self.model.classifier.parameters())[0].norm(2).item()
             except:
                 pass
-            # # CClassifierDeepRBFNetwork
-            # try:
-            #     wd = list(self.model._combiner.parameters())[0].norm(2).item()
-            # except:
-            #     pass
+            # CClassifierDeepRBFNetwork
+            try:
+                wd = list(self.model._combiner.parameters())[0].norm(2).item()
+            except:
+                pass
 
             self.logger.debug(
                 "[DEBUG] Epoch {} -> loss: {:.2e} (xentr:{:.3e}, grad_norm2:{:.3e}, penalty:{:.3e}, wd: {:.3e})".

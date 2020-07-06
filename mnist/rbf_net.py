@@ -51,6 +51,7 @@ class CClassifierRBFNetwork(CClassifier):
                  sigma=0.0,  # DEFAULT: No regularization!
                  track_prototypes=False,
                  random_state=None):
+
         # Param checking
         if isinstance(n_hiddens, int):
             n_hiddens = [n_hiddens] * len(layers)
@@ -136,9 +137,9 @@ class CClassifierRBFNetwork(CClassifier):
     def history(self):
         return self._clf._history
 
-    @property
-    def _grad_requires_forward(self):       # TODO: Do we need this?! (in CClassifierRejectRBFNet)
-        return True
+    # @property
+    # def _grad_requires_forward(self):       # TODO: Do we need this?! (in CClassifierRejectRBFNet)
+    #     return True
 
     # TODO: Expose Betas
 

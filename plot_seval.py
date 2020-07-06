@@ -14,10 +14,12 @@ EVAL_TYPE = 'bb'
 CLFS = ['nr', 'dnr',
         # 'rbf_net_sigma_0.000_250', 'rbf_net_sigma_0.000_500_1xclass',
         # 'rbf_net_sigma_0.000_250_4x', 'rbf_net_sigma_0.010_1000']
-        'rbf_net_sigma_0.000_250_nr_like']
+        # 'rbf_net_sigma_0.000_250_nr_like',
+        'deep_rbf_net_train_sigma_0.000_250'
+        ]
 # CLFS = ['dnn', 'adv_reg_cnn']
 N_ITER = 3
-FNAME = 'all_'+EVAL_TYPE+'_rbf_net_nr_like' # 'tsne_rej_test_gamma'
+FNAME = 'all_'+EVAL_TYPE+'_deep_rbf_net' #'_rbf_net_nr_like' # 'tsne_rej_test_gamma'
 # FNAME = 'adv_reg_dnn'
 
 
@@ -81,17 +83,20 @@ if __name__ == '__main__':
     # This is done here to make 'markevery' work correctly
 
     for clf in CLFS:
-        # BB SETTINGS
-        sec_evals = [CSecEval.load(os.path.join(DSET, clf + '_'+EVAL_TYPE+'_seval.gz'))]
-
-        # # WB SETTINGS
-        # sec_evals = []
-        # for it in range(N_ITER):
-        #     # Load sec_eval
-        #     fname = os.path.join(DSET, clf + '_'+EVAL_TYPE+'_seval_it_'+str(it)+'.gz')
-        #     if os.path.exists(fname):
-        #         seval = CSecEval.load(fname)
-        #         sec_evals.append(seval)
+        if EVAL_TYPE == 'bb':
+            # BB SETTINGS
+            sec_evals = [CSecEval.load(os.path.join(DSET, clf + '_'+EVAL_TYPE+'_seval.gz'))]
+        elif EVAL_TYPE == 'wb':
+            # WB SETTINGS
+            sec_evals = []
+            for it in range(N_ITER):
+                # Load sec_eval
+                fname = os.path.join(DSET, clf + '_'+EVAL_TYPE+'_seval_it_'+str(it)+'.gz')
+                if os.path.exists(fname):
+                    seval = CSecEval.load(fname)
+                    sec_evals.append(seval)
+        else:
+            raise ValueError("Unknown EVAL_TYPE!")
 
         print(" - Plotting ", clf)
 

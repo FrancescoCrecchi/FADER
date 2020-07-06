@@ -14,6 +14,16 @@ class Stack(nn.Module):
         return x
 
 
+class Mean(nn.Module):
+
+    def __init__(self):
+        super(Mean, self).__init__()
+
+    def forward(self, x, axis):
+        x = torch.mean(x, axis)
+        return x
+
+
 class DeepRBFNetwork(nn.Module):
 
     def __init__(self, n_features, n_hiddens, n_classes):
@@ -41,7 +51,8 @@ class DeepRBFNetwork(nn.Module):
         #     # 'n_hiddens[-1]' combiner rbf neurons per class: RBFUnit + LinearUnit -> Class score
         #     rbfnet = RBFNetwork(self._n_layers, self.n_hiddens[-1], 1)
         #     self._combiner.append(rbfnet)
-        self._combiner = nn.Linear(self.n_classes * self._n_layers, n_classes)
+        # self._combiner = nn.Linear(self.n_classes * self._n_layers, n_classes)
+        self._combiner = Mean()
 
         # TODO: FIX BETAS?
 
@@ -55,9 +66,13 @@ class DeepRBFNetwork(nn.Module):
             f_x.append(out)
         f_x = self._stack(f_x, 2)        # fx.shape=(batch_size, n_classes, n_layers)
         # # Pass through combiner x class
+        ## 1) RBF NETS
         # out = []
         # for c in range(self.n_classes):
         #     out.append(self._combiner[c](f_x[:, c, :]))
         # out = torch.cat(out, 1)
-        out = self._combiner(f_x.view(x.shape[0], -1))
+        ## 2) LINEAR LAYER
+        # out = self._combiner(f_x.view(x.shape[0], -1))
+        # 3) MEAN LAYER
+        out = self._combiner(f_x, 2)    # (n_samples, n_classes)
         return out

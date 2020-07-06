@@ -11,7 +11,7 @@ from wb_dnr_surrogate import CClassifierDNRSurrogate
 from wb_nr_surrogate import CClassifierRejectSurrogate
 
 # TODO: Set this!
-CLF = 'rbf_net_sigma_0.000_250_nr_like'
+CLF = 'deep_rbf_net_train_sigma_0.000_250'
 USE_SMOOTHING = False
 N_SAMPLES = 100
 N_PLOTS = 10
@@ -49,7 +49,7 @@ tr_sample = vl[tr_idxs, :]
 
 # Defining attack
 noise_type = 'l2'   # Type of perturbation 'l1' or 'l2'
-dmax = 0.4          # Maximum perturbation
+dmax = 0.2          # Maximum perturbation
 lb, ub = 0., 1.     # Bounds of the attack space. Can be set to `None` for unbounded
 y_target = None     # None if `error-generic` or a class label for `error-specific`
 

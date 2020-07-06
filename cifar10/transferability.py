@@ -33,7 +33,7 @@ def transfer_attack(clf, seval):
 # CLFS = ['nr', 'dnr',
 #         'rbf_net_sigma_0.000_250', 'rbf_net_sigma_0.000_500_1xclass',
 #         'rbf_net_sigma_0.000_250_4x', 'rbf_net_sigma_0.010_1000']
-CLFS = ['rbf_net_sigma_0.000_250_nr_like']
+CLFS = ['deep_rbf_net_train_sigma_0.000_250']
 if __name__ == '__main__':
     random_state = 999
 
