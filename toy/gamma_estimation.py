@@ -29,7 +29,7 @@ def gamma_estimation(dataset, factor=0.3):
     """
     if factor <= 0 or factor > 1:
         raise ValueError("factor must be inside (0, 1] range.")
-    # Smaller is the number of neighboors, higher is the gamma
+    # Smaller is the number of neighbors, higher is the gamma
     num_cons_neighboors = int(dataset.num_samples * factor)
     if num_cons_neighboors < dataset.num_classes:
         raise ValueError("dataset must have at least {:} samples".format(

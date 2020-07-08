@@ -13,10 +13,10 @@ from wb_dnr_surrogate import CClassifierDNRSurrogate
 from wb_nr_surrogate import CClassifierRejectSurrogate
 
 # TODO: Set this!
-CLF = 'deep_rbf_net_train_sigma_0.000_250'
+CLF = 'tsne_rej'
 USE_SMOOTHING = False
-N_SAMPLES = 100
-N_PLOTS = 10
+N_SAMPLES = 10
+N_PLOTS = 4
 
 random_state = 999
 _, vl, ts = get_datasets(random_state)

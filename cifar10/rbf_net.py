@@ -37,8 +37,8 @@ if __name__ == '__main__':
     ts_sample = ts[ts_idxs[N_TEST:], :]
 
     # Create DNR
-    layers = ['features:23', 'features:26']        # 'features:29'
-    n_hiddens = [2000, 1000]                         # , 100  # TODO: Set this according to DNR features
+    layers = ['features:23', 'features:26', 'features:29']
+    n_hiddens = [500, 300, 100]
     rbf_net = CClassifierRBFNetwork(dnn, layers,
                                     n_hiddens=n_hiddens,
                                     epochs=EPOCHS,
@@ -81,4 +81,4 @@ if __name__ == '__main__':
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
 
     # Dump to disk
-    clf_rej.save('rbf_net_sigma_{:.3f}_{}_4x'.format(SIGMA, EPOCHS))
+    clf_rej.save('rbf_net_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS))

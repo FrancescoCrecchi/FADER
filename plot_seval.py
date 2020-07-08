@@ -1,27 +1,25 @@
 import os
 import numpy as np
-from secml.adv.seceval import CSecEval
+from secml.adv.seceval import CSecEvalData, CSecEval
 from secml.array import CArray
 from secml.figure import CFigure
 from secml.ml.peval.metrics import CMetricAccuracyReject, CMetricAccuracy
 
+# PARAMETERS
 DSET = 'cifar10'
-EVAL_TYPE = 'bb'
-# CLFS = ['rbf_net_sigma_{:.1f}'.format(sigma) for sigma in np.arange(4, dtype=float)]
-# CLFS = ['dnn', 'nr', 'dnr'] + CLFS #, 'deep_rbf_net_sigma_1'] #,'tsne_rej', 'tnr']
-# CLFS = ['dnn', 'nr', 'dnr', 'rbf_net_sigma_0.000_30', 'rbf_net_sigma_0.000_250', 'rbf_net_sigma_0.010_250']
-# CLFS = ['dnn', 'nr', 'dnr', 'rbf_net_sigma_0.000_250',  'deep_rbf_net_train_sigma_0.000_250']
-CLFS = ['nr', 'dnr',
-        # 'rbf_net_sigma_0.000_250', 'rbf_net_sigma_0.000_500_1xclass',
-        # 'rbf_net_sigma_0.000_250_4x', 'rbf_net_sigma_0.010_1000']
-        # 'rbf_net_sigma_0.000_250_nr_like',
-        'deep_rbf_net_train_sigma_0.000_250'
-        ]
-# CLFS = ['dnn', 'adv_reg_cnn']
-N_ITER = 3
-FNAME = 'all_'+EVAL_TYPE+'_deep_rbf_net' #'_rbf_net_nr_like' # 'tsne_rej_test_gamma'
-# FNAME = 'adv_reg_dnn'
+EVAL_TYPE = 'wb'
 
+# ------------------------------------------------------
+CLFS = ['dnn', 'nr', 'dnr', 'tsne_rej', 'tnr']
+if DSET == 'mnist':
+    EPS = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0]
+elif DSET == 'cifar10':
+    EPS = [0.0, 0.05, 0.1, 0.2, 0.4, 1.0, 2.0]
+else:
+    raise ValueError('Unknown dataset!')
+N_ITER = 3
+FNAME = 'all_'+EVAL_TYPE+'_neurocomp'
+# ------------------------------------------------------
 
 # Plot sec_eval with reject percentage
 def rej_percentage(sec_eval_data):
@@ -71,7 +69,7 @@ def compute_performance(sec_eval_data, perf_eval_fun):
     perf_mean = perf.mean(axis=0, keepdims=False)
     # perf = perf.ravel()
 
-    return perf_mean, perf_std
+    return seval_data.param_values, perf_mean, perf_std
 
 
 if __name__ == '__main__':
@@ -80,63 +78,79 @@ if __name__ == '__main__':
     # Sec eval plot code
     sp1 = fig.subplot(2, 1, 1)
     sp2 = fig.subplot(2, 1, 2)
-    # This is done here to make 'markevery' work correctly
 
     for clf in CLFS:
-        if EVAL_TYPE == 'bb':
-            # BB SETTINGS
-            sec_evals = [CSecEval.load(os.path.join(DSET, clf + '_'+EVAL_TYPE+'_seval.gz'))]
-        elif EVAL_TYPE == 'wb':
-            # WB SETTINGS
-            sec_evals = []
-            for it in range(N_ITER):
-                # Load sec_eval
-                fname = os.path.join(DSET, clf + '_'+EVAL_TYPE+'_seval_it_'+str(it)+'.gz')
-                if os.path.exists(fname):
-                    seval = CSecEval.load(fname)
-                    sec_evals.append(seval)
+
+        if EVAL_TYPE == 'bb' and clf == 'dnn':
+            continue
+
+        sec_evals_data = []
+        for it in range(N_ITER):
+            # Load sec_eval
+            fname = os.path.join(DSET, clf + '_'+EVAL_TYPE+'_seval_it_'+str(it)+'.gz')
+            if os.path.exists(fname):
+                if EVAL_TYPE == 'bb':
+                    seval_data = CSecEvalData.load(fname)
+                else:
+                    seval_data = CSecEval.load(fname).sec_eval_data
+
+                sec_evals_data.append(seval_data)
+
+        # HACK: Changing plot classifier names
+        if clf == 'tsne_rej':
+            label = '$t$-NR'
+        elif clf == 'tnr':
+            label = 'D$t$-NR'
         else:
-            raise ValueError("Unknown EVAL_TYPE!")
+            label = clf.upper()
 
-        print(" - Plotting ", clf)
-
-        sec_evals_data = [seval.sec_eval_data for seval in sec_evals]
+        print(" - Plotting ", label)
 
         # Plot performance
-        perf, perf_std = compute_performance(sec_evals_data, acc_rej_performance)
-        sp1.plot(sec_evals[0].sec_eval_data.param_values, perf, label=clf)
+        eps, perf, perf_std = compute_performance(sec_evals_data, acc_rej_performance)
+
+        # Compute EPS mask
+        msk = CArray([e in EPS for e in eps])
+
+        # SP1
+        xticks = CArray.arange(len(EPS)) if EPS is not None else eps[msk]
+        sp1.plot(xticks, perf[msk], label=label)
         # Plot mean and std
         std_up = perf + perf_std
         std_down = perf - perf_std
         std_down[std_down < 0.0] = 0.0
         std_down[std_up > 1.0] = 1.0
-        sp1.fill_between(sec_evals[0].sec_eval_data.param_values, std_up, std_down, interpolate=False, alpha=0.2)
+        sp1.fill_between(xticks, std_up[msk], std_down[msk], interpolate=False, alpha=0.2)
 
 
         # Plot reject percentage
-        perf, perf_std = compute_performance(sec_evals_data, rej_percentage)
-        sp2.plot(sec_evals[0].sec_eval_data.param_values, perf, label=clf)
+        _, perf, perf_std = compute_performance(sec_evals_data, rej_percentage)
+        sp2.plot(xticks, perf[msk], label=label)
         # Plot mean and std
         std_up = perf + perf_std
         std_down = perf - perf_std
         std_down[std_down < 0.0] = 0.0
         std_down[std_up > 1.0] = 1.0
-        sp2.fill_between(sec_evals[0].sec_eval_data.param_values, std_up, std_down, interpolate=False, alpha=0.2)
+        sp2.fill_between(xticks, std_up[msk], std_down[msk], interpolate=False, alpha=0.2)
 
-    sp1.xticks(sec_evals[0].sec_eval_data.param_values)
-    sp1.xlabel(sec_evals[0].sec_eval_data.param_name)
-    sp1.ylabel(CMetricAccuracyReject().class_type.capitalize())
+    sp1.xticks(xticks)
+    sp1.xticklabels(EPS)
+    sp1.xlabel('dmax')
+    sp1.ylabel('Accuracy') #(CMetricAccuracyReject().class_type.capitalize())
     sp1.legend()
-    sp1.title("Security Evaluation Curve")
+    sp1.title("{0} evasion attack ({1})".format(
+        'Black-box' if EVAL_TYPE == 'bb' else 'White-box',
+        DSET.upper()
+    ))
     sp1.apply_params_sec_eval()
 
-    # Rej percentage plot code
-    sp2.xticks(sec_evals[0].sec_eval_data.param_values)
-    sp2.xlabel(sec_evals[0].sec_eval_data.param_name)
-    sp2.ylabel("% Reject")
+    sp2.xticks(xticks)
+    sp2.xticklabels(EPS)
+    sp2.xlabel('dmax')
+    sp2.ylabel('Rejection rate') #("% Reject")
     sp2.apply_params_sec_eval()
 
     # Dump to file
     out_file = os.path.join(DSET, FNAME)
     print("- Saving output to file: {}".format(out_file))
-    fig.savefig(os.path.join(DSET, FNAME))
+    fig.savefig(os.path.join(DSET, FNAME+'.pdf'), file_format='pdf')

@@ -137,9 +137,9 @@ class CClassifierRBFNetwork(CClassifier):
     def history(self):
         return self._clf._history
 
-    # @property
-    # def _grad_requires_forward(self):       # TODO: Do we need this?! (in CClassifierRejectRBFNet)
-    #     return True
+    @property
+    def _grad_requires_forward(self):
+        return True
 
     # TODO: Expose Betas
 

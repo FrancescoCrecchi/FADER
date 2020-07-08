@@ -6,10 +6,11 @@ from secml.ml.peval.metrics import CMetricAccuracy
 from cifar10.attack_dnn import security_evaluation
 from cifar10.fit_dnn import get_datasets
 
-CLFS = ['rbf_net_sigma_0.000_250_nr_like']
+CLFS = ['dnn']
 
 N_SAMPLES = 100     # TODO: restore full dataset
 ITER = 3
+EPS = CArray.arange(start=0, step=0.05, stop=2.1)
 if __name__ == '__main__':
     random_state = 999
     tr, _, ts = get_datasets(random_state)
@@ -37,8 +38,7 @@ if __name__ == '__main__':
             ts_sample = ts[it_idxs, :]
 
             # "Used to perturb all test samples"
-            eps = CArray.arange(start=0, step=1/8, stop=2.1)
-            sec_eval = security_evaluation(pgd_attack, ts_sample, eps)
+            sec_eval = security_evaluation(pgd_attack, ts_sample, EPS)
 
             # Save to disk
             sec_eval.save(_clf + '_wb_seval_it_' + str(it))
