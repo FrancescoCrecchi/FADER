@@ -8,7 +8,10 @@ from cifar10.cnn_cifar10 import cifar10
 from cifar10.fit_dnn import get_datasets
 
 
-def security_evaluation(attack, dset, evals, double_init=False):
+def security_evaluation(attack, dset, evals,
+                        pre_callbacks=None,
+                        post_callbacks=None,
+                        double_init=False):
 
     # Security evaluation
     seval = CSecEval(attack=attack, param_name='dmax', param_values=evals, save_adv_ds=True)
@@ -16,7 +19,10 @@ def security_evaluation(attack, dset, evals, double_init=False):
 
     # Run the security evaluation using the test set
     print("Running security evaluation...")
-    seval.run_sec_eval(dset, double_init=double_init)
+    seval.run_sec_eval(dset,
+                       pre_callbacks=pre_callbacks,
+                       post_callbacks=post_callbacks,
+                       double_init=double_init)
     print("Done!")
 
     return seval

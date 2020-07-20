@@ -1,3 +1,6 @@
+import multiprocessing
+multiprocessing.set_start_method('forkserver')
+
 from secml.adv.attacks import CAttackEvasionPGDExp
 from secml.array import CArray
 from secml.figure import CFigure
@@ -11,10 +14,10 @@ from wb_dnr_surrogate import CClassifierDNRSurrogate
 from wb_nr_surrogate import CClassifierRejectSurrogate
 
 # TODO: Set this!
-CLF = 'tnr'
-USE_SMOOTHING = False
-N_SAMPLES = 10
-N_PLOTS = 4
+CLF = 'nr'
+USE_SMOOTHING = True
+N_SAMPLES = 30
+N_PLOTS = 10
 
 random_state = 999
 _, vl, ts = get_datasets(random_state)
@@ -29,7 +32,7 @@ elif CLF == 'dnr' or CLF == 'tnr':
     # DNR
     clf = CClassifierDNR.load(CLF+'.gz')
     if USE_SMOOTHING:
-        clf = CClassifierDNRSurrogate(clf, gamma_smoothing=1000)
+        clf = CClassifierDNRSurrogate(clf, gamma_smoothing=10)
 elif "rbf_net" in CLF:
     # DEBUG: DUPLICATED CODE TO AVOID SMOOTHING
     clf = CClassifierRejectRBFNet.load(CLF + '.gz')
@@ -57,7 +60,7 @@ y_target = None     # None if `error-generic` or a class label for `error-specif
 solver_params = {
     'eta': 0.1,
     'eta_min': 0.1,
-    # 'eta_pgd': 0.01,
+    # 'eta_pgd': 0.1,
     'max_iter': 40,
     'eps': 1e-6
 }
@@ -72,9 +75,12 @@ pgd_attack = CAttackEvasionPGDExp(classifier=clf,
                                   y_target=y_target)
 pgd_attack.verbose = 2  # DEBUG
 
+# HACK: Setting 'n_jobs' param
+pgd_attack.n_jobs = 2
+
 # Attack N_SAMPLES
 sample = ts[:N_SAMPLES, :]
-eva_y_pred, _, eva_adv_ds, _ = pgd_attack.run(sample.X, sample.Y)    # double_init=False
+eva_y_pred, _, eva_adv_ds, _ = pgd_attack.run(sample.X, sample.Y) #, double_init=False)
 
 # Compute attack performance
 assert dmax > 0, "Wrong dmax!"

@@ -10,7 +10,8 @@ DSET = 'cifar10'
 EVAL_TYPE = 'wb'
 
 # ------------------------------------------------------
-CLFS = ['dnn', 'nr', 'dnr', 'tsne_rej', 'tnr']
+# CLFS = ['dnn', 'nr', 'dnr', 'tsne_rej', 'tnr']
+CLFS = ['dnn', 'nr']
 if DSET == 'mnist':
     EPS = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0]
 elif DSET == 'cifar10':
@@ -18,7 +19,8 @@ elif DSET == 'cifar10':
 else:
     raise ValueError('Unknown dataset!')
 N_ITER = 3
-FNAME = 'all_'+EVAL_TYPE+'_neurocomp'
+FNAME = 'all_'+EVAL_TYPE+'_test_cbks'
+EXTENSION = 'png'
 # ------------------------------------------------------
 
 # Plot sec_eval with reject percentage
@@ -79,11 +81,13 @@ if __name__ == '__main__':
     sp1 = fig.subplot(2, 1, 1)
     sp2 = fig.subplot(2, 1, 2)
 
+    # ============== CLASSIFIERS LOOP ==============
     for clf in CLFS:
 
         if EVAL_TYPE == 'bb' and clf == 'dnn':
             continue
 
+        # ============== ITERATIONS LOOP ==============
         sec_evals_data = []
         for it in range(N_ITER):
             # Load sec_eval
@@ -153,4 +157,4 @@ if __name__ == '__main__':
     # Dump to file
     out_file = os.path.join(DSET, FNAME)
     print("- Saving output to file: {}".format(out_file))
-    fig.savefig(os.path.join(DSET, FNAME+'.pdf'), file_format='pdf')
+    fig.savefig(os.path.join(DSET, FNAME+'.'+EXTENSION), file_format=EXTENSION)
