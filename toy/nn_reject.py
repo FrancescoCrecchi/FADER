@@ -160,7 +160,9 @@ from secml.adv.attacks.evasion import CAttackEvasionPGDLS
 
 pgd_ls_attack = CAttackEvasionPGDLS(
     classifier=clf_norej,
-    double_init_ds=dataset,
+    surrogate_classifier=clf_norej,
+    surrogate_data=dataset,
+    # double_init_ds=dataset,
     distance=noise_type,
     lb=None,
     ub=None,
@@ -213,9 +215,9 @@ fig_evasion_norej.sp.grid(grid_on=False)
 fig_evasion_norej.sp.title(
     r"RBF RBFNet (no reject, $\varepsilon={:}$)".format(dmax))
 fig_evasion_norej.savefig(
-    fm.join(fm.abspath(__file__), 'figures/nn_evasion_noreject.png'))
+    fm.join('figures/nn_evasion_noreject.png'))
 fig_evasion_norej.savefig(
-    fm.join(fm.abspath(__file__), 'figures/nn_evasion_noreject.pdf'))
+    fm.join('figures/nn_evasion_noreject.pdf'))
 
 x0, y0 = dataset.X[0, :], dataset.Y[0]
 print(x0)

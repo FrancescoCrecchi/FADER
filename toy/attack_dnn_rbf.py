@@ -9,8 +9,7 @@ from torch import nn
 from torch.optim import Adam
 
 from toy.rbf_net import RBFNet
-from toy.utils import get_cifar10_preprocess, get_datasets_cifar10, \
-    get_accuracy, plot_seceval
+from toy.utils import get_cifar10_preprocess, get_datasets_cifar10, get_accuracy, plot_seceval
 
 
 if __name__ == '__main__':
@@ -44,7 +43,7 @@ if __name__ == '__main__':
                                                   lr=0.01,
                                                   weight_decay=1e-6),
                                    loss=nn.CrossEntropyLoss(),
-                                   epochs=200, batch_size=1000,
+                                   epochs=100, batch_size=128,
                                    input_shape=(1024,),
                                    softmax_outputs=False,
                                    random_state=0,
@@ -55,10 +54,10 @@ if __name__ == '__main__':
         clf_norej.fit(ds_vl.X, ds_vl.Y)
         clf_norej.verbose = 0
 
-        clf_norej.save_state(fm.join(fm.abspath(__file__), 'dnn_rbf_state.gz'))
+        clf_norej.save_model(fm.join(fm.abspath(__file__), 'dnn_rbf_state.gz'))
 
-    clf_norej.load_state(fm.join(fm.abspath(__file__), 'dnn_rbf_state.gz'))
-    # get_accuracy(clf_norej, ds_ts)
+    clf_norej.load_model(fm.join(fm.abspath(__file__), 'dnn_rbf_state.gz'))
+    get_accuracy(clf_norej, ds_ts)
 
     # Defining attack
     noise_type = 'l2'
@@ -79,26 +78,28 @@ if __name__ == '__main__':
         }
 
         pgd_attack = CAttackEvasionPGDExp(classifier=clf_norej,
-                                          double_init=False,
+                                          surrogate_classifier=clf_norej,
+                                          surrogate_data=ds_tr,
+                                          # double_init=False,
                                           distance=noise_type,
                                           lb=lb, ub=ub,
                                           dmax=dmax,
                                           solver_params=solver_params,
                                           y_target=y_target)
         pgd_attack.verbose = 1
-        pgd_attack.n_jobs = 2
+        pgd_attack.n_jobs = 1       # TODO: CHANGE HERE!
 
         # Attack sample
-        sample_idx = CArray.randsample(
-            ds_ts.X.shape[0], shape=25, random_state=random_state)
+        N_ATTACK_POINTS = 100
+        sample_idx = CArray.randsample(ds_ts.X.shape[0], shape=N_ATTACK_POINTS, random_state=random_state)
         ds_adv = ds_ts[sample_idx, :]
 
         # Security evaluation
         sec_eval = CSecEval(attack=pgd_attack,
                             param_name='dmax', param_values=eps,
                             save_adv_ds=False)
-        sec_eval.verbose = 2  # DEBUG
 
+        sec_eval.verbose = 2  # DEBUG
         clf_norej.verbose = 0
 
         # Run the security evaluation using the test set

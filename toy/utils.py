@@ -91,3 +91,17 @@ def rej_percentage(sec_eval_data):
     for k in range(sec_eval_data.param_values.size):
         perf[k] = (sec_eval_data.Y_pred[k] == -1).sum() / sec_eval_data.Y_pred[k].shape[0]
     return perf
+
+def plot_reject_percentage(sec_eval, eps, label='', name=''):
+    fig = CFigure(height=5, width=5)
+    fig.sp.plot(eps, rej_percentage(sec_eval.sec_eval_data), marker='o', label=label)
+    fig.sp.xscale('symlog', linthreshx=0.1)
+    fig.sp.xticks(eps)
+    fig.sp.xticklabels(eps)
+    fig.sp.ylim(-0.05, 1.05)
+    fig.sp.apply_params_sec_eval()
+    fig.sp.legend(loc='best', labelspacing=0.4,
+                handletextpad=0.3, edgecolor='k')
+    fig.sp.ylabel('Reject percentage')
+    fig.sp.title("Reject percentage plot")
+    fig.savefig(fm.join(fm.abspath(__file__), name + '_reject_percentage_plot.pdf'))

@@ -1,3 +1,4 @@
+from matplotlib.pyplot import ylabel
 from secml.adv.attacks import CAttackEvasionPGDExp
 from secml.adv.seceval import CSecEval
 from secml.array import CArray
@@ -11,7 +12,7 @@ from torch.optim import Adam
 
 from toy.rbf_net import RBFNet
 from toy.utils import get_cifar10_preprocess, get_datasets_cifar10, \
-    get_accuracy_reject, plot_seceval_reject, rej_percentage
+    get_accuracy_reject, plot_seceval_reject, plot_reject_percentage
 
 
 if __name__ == '__main__':
@@ -38,7 +39,7 @@ if __name__ == '__main__':
     torch.manual_seed(0)
     rbfnet = RBFNet(layer_widths, layer_centres, basis_func)
     c0 = ds_vl_pre.tondarray() + 1e-4  # To avoid nan when computing rbf distances
-    print(c0)
+    # print(c0)
     rbfnet.rbf_layers[0].centres.data = torch.from_numpy(c0).float()
 
     clf_norej = CClassifierPyTorch(rbfnet,
@@ -52,12 +53,15 @@ if __name__ == '__main__':
                                    random_state=0,
                                    preprocess=dnn_pre)
 
-    clf_norej.load_state(fm.join(fm.abspath(__file__), 'dnn_rbf_state.gz'))
+    clf_norej.load_model(fm.join(fm.abspath(__file__), 'dnn_rbf_state.gz'))
     clf_norej.verbose = 0
 
-    clf = CClassifierRejectThreshold(clf_norej, threshold=0.4)
+    # HACK: Handle this in 'CClassifierReject'
+    tmp = clf_norej.preprocess
+    clf_norej.preprocess = None
+    clf = CClassifierRejectThreshold(clf_norej, threshold=0.4, preprocess=tmp)
 
-    # clf.threshold = clf.compute_threshold(0.01, ds_ts)
+    clf.threshold = clf.compute_threshold(0.1, ds_ts)
     print(clf.threshold)
 
     get_accuracy_reject(clf, ds_ts)
@@ -72,7 +76,7 @@ if __name__ == '__main__':
 
     eps = CArray([0, 0.05, 0.1, 0.2, 0.4, 1.0, 2.0])
 
-    if True:
+    if False:
 
         # Should be chosen depending on the optimization problem
         solver_params = {
@@ -83,18 +87,20 @@ if __name__ == '__main__':
         }
 
         pgd_attack = CAttackEvasionPGDExp(classifier=clf,
-                                          double_init=False,
+                                          surrogate_classifier=clf,
+                                          surrogate_data=ds_tr,
+                                          # double_init=False,
                                           distance=noise_type,
                                           lb=lb, ub=ub,
                                           dmax=dmax,
                                           solver_params=solver_params,
                                           y_target=y_target)
         pgd_attack.verbose = 1
-        pgd_attack.n_jobs = 2
+        # pgd_attack.n_jobs = 4
 
         # Attack sample
-        sample_idx = CArray.randsample(
-            ds_ts.X.shape[0], shape=25, random_state=random_state)
+        N_ATTACK_POINTS = 100
+        sample_idx = CArray.randsample(ds_ts.X.shape[0], shape=N_ATTACK_POINTS, random_state=random_state)
         ds_adv = ds_ts[sample_idx, :]
 
         # Security evaluation
@@ -105,7 +111,7 @@ if __name__ == '__main__':
 
         # Run the security evaluation using the test set
         print("Running security evaluation...")
-        sec_eval.run_sec_eval(ds_adv)
+        sec_eval.run_sec_eval(ds_adv) #, post_callbacks=[lambda seval: torch.cuda.empty_cache()])
         print("Done!")
 
         # Save to disk
@@ -114,10 +120,6 @@ if __name__ == '__main__':
     sec_eval = CSecEval.load(
         fm.join(fm.abspath(__file__), 'dnn_rbf_reject_seceval.gz'))
 
+    # Plots
     plot_seceval_reject(sec_eval, eps, label='DNN-RBF (R)', name='dnn_rbf')
-
-    from secml.figure import CFigure
-    fig = CFigure()
-    fig.sp.plot(sec_eval.sec_eval_data.param_values,
-                y=rej_percentage(sec_eval.sec_eval_data), marker='o')
-    fig.show()
+    plot_reject_percentage(sec_eval, eps, label='DNN-RBF (R)', name='dnn_rbf')
