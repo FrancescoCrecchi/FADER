@@ -8,16 +8,17 @@ from secml.ml.classifiers.reject import CClassifierRejectThreshold, CClassifierD
 from secml.ml.peval.metrics import CMetricAccuracy, CMetricAccuracyReject
 
 from cifar10.fit_dnn import get_datasets
+from cifar10.dnr_mean import CClassifierMean
 from mnist.rbf_net import CClassifierRejectRBFNet
 
 from wb_dnr_surrogate import CClassifierDNRSurrogate
 from wb_nr_surrogate import CClassifierRejectSurrogate
 
 # TODO: Set this!
-CLF = 'nr'
-USE_SMOOTHING = True
-N_SAMPLES = 30
-N_PLOTS = 10
+CLF = 'dnr_mean'
+USE_SMOOTHING = False
+N_SAMPLES = 10
+N_PLOTS = 4
 
 random_state = 999
 _, vl, ts = get_datasets(random_state)
@@ -28,7 +29,7 @@ if CLF == 'nr' or CLF == 'tsne_rej':
     clf = CClassifierRejectThreshold.load(CLF+'.gz')
     if USE_SMOOTHING:
         clf = CClassifierRejectSurrogate(clf, gamma_smoothing=10)
-elif CLF == 'dnr' or CLF == 'tnr':
+elif 'dnr' in CLF or CLF == 'tnr':
     # DNR
     clf = CClassifierDNR.load(CLF+'.gz')
     if USE_SMOOTHING:
