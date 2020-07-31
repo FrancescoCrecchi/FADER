@@ -132,7 +132,12 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                 pass
             # CClassifierDeepRBFNetwork
             try:
-                wd = list(self.model._combiner.parameters())[0].norm(2).item()
+                wd = 0.
+                # Accounting for linear layers of '_layer_clfs' combiners
+                for clf in self.model._layer_clfs:
+                    wd += list(clf._combiner.parameters())[0].norm(2).item()
+                # And for combiner one
+                wd += list(self.model._combiner.parameters())[0].norm(2).item()
             except:
                 pass
 
@@ -144,7 +149,8 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                            grad_norm2,
                            cum_penalty,
                            wd
-                           ))
+                           )
+            )
 
             # print statistics
             if epoch % 10 == 0:

@@ -3,6 +3,8 @@ import os
 from secml.adv.seceval import CSecEval, CSecEvalData
 from secml.ml.classifiers.reject import CClassifierRejectThreshold, CClassifierDNR
 
+from mnist.rbf_net import CClassifierRejectRBFNet
+
 
 def transfer_attack(clf, seval_data):
     '''
@@ -22,8 +24,9 @@ def transfer_attack(clf, seval_data):
     return res
 
 
-DSET = 'mnist'
-CLFS = ['nr', 'dnr', 'tsne_rej', 'tnr']
+DSET = 'cifar10'
+# CLFS = ['nr', 'dnr', 'tsne_rej', 'tnr']
+CLFS = ['rbf_net_sigma_0.000_250']
 N_ITER = 3
 if __name__ == '__main__':
     random_state = 999
@@ -42,6 +45,8 @@ if __name__ == '__main__':
             clf = CClassifierRejectThreshold.load(os.path.join(DSET, _clf + '.gz'))
         elif _clf == 'dnr' or _clf == 'tnr':
             clf = CClassifierDNR.load(os.path.join(DSET, _clf + '.gz'))
+        elif "rbf_net" in _clf:
+            clf = CClassifierRejectRBFNet.load(os.path.join(DSET, _clf + '.gz'))
         else:
             raise ValueError("Unknown model to test for transferability!")
         clf.n_jobs = 16

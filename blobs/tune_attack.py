@@ -49,7 +49,7 @@ def run_attack(attack, dset, n_samples=10):
 
     fig.savefig("wb_attack_tuning.png")
 
-CLF = 'svm'
+CLF = 'rbfnet'
 if __name__ == '__main__':
     seed = 999
 
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     # ts.X = nmz.transform(ts.X)
 
     # Load pre-trained clf
-    clf = CClassifierRejectThreshold.load('{}_blobs.gz'.format(CLF))
+    clf = CClassifierRejectThreshold.load('{}_blobs_{}.gz'.format(CLF, seed))
     # Check estimated performance
     y_pred = clf.predict(ts.X)
     acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
@@ -107,6 +107,6 @@ if __name__ == '__main__':
     pgd_ls_attack.verbose = 0
 
     # Dump attack to disk
-    pgd_ls_attack.save("{}_attack".format(CLF))
+    pgd_ls_attack.save("{}_attack_{}".format(CLF, seed))
 
     print("done?")

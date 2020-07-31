@@ -9,8 +9,12 @@ fig = CFigure(height=10, width=16)
 sp1 = fig.subplot(2, 1, 1)
 sp2 = fig.subplot(2, 1, 2)
 
+
+# CLFS = ['rbfnet', 'svm']
+CLFS = ['rbfnet_998', 'rbfnet_999']
+
 print("Plotting")
-for clf_name in ['rbfnet', 'svm']:
+for clf_name in CLFS:
     # Load data
     sec_eval = CSecEval.load('{}_sec_eval.gz'.format(clf_name))
     clf = sec_eval.attack.classifier
@@ -19,7 +23,7 @@ for clf_name in ['rbfnet', 'svm']:
     print(" - " + clf_name)
 
     # Plot performance
-    perf, perf_std = compute_performance(sec_evals_data, acc_rej_performance)
+    _, perf, perf_std = compute_performance(sec_evals_data, acc_rej_performance)
     sp1.plot(sec_evals_data.param_values, perf, label=clf_name)
     # Plot mean and std
     std_up = perf + perf_std
@@ -29,7 +33,7 @@ for clf_name in ['rbfnet', 'svm']:
     sp1.fill_between(sec_evals_data.param_values, std_up, std_down, interpolate=False, alpha=0.2)
 
     # Plot reject percentage
-    perf, perf_std = compute_performance(sec_evals_data, rej_percentage)
+    _, perf, perf_std = compute_performance(sec_evals_data, rej_percentage)
     sp2.plot(sec_evals_data.param_values, perf, label=clf_name)
     # Plot mean and std
     std_up = perf + perf_std

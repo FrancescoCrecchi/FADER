@@ -25,14 +25,11 @@ class CClassifierMean(CClassifier):
         return res
 
     def _backward(self, w):
-
-        # HACK: Trying avoiding zero grad.
-        w[w == -1] = 0
-
-        c, l = self._cached_x.shape
-        grad = CArray.ones((self.n_classes, l)) * (1/l)
-        return w.atleast_2d().dot(grad)
-
+        _, d = self._cached_x.shape
+        l = d//self.n_classes
+        # grad: 1/l * [w; w; w] for l = 3 (e.g.)
+        grad = (1/l) * CArray.repmat(w, 1, l)
+        return grad
 
 N_TRAIN, N_TEST = 10000, 1000
 if __name__ == '__main__':

@@ -35,7 +35,8 @@ if __name__ == '__main__':
 
     # Create a blobs RBF-Net classifier
     n_classes = len(centers)
-    model = RBFNetwork(n_features, n_classes, n_classes)
+    # model = RBFNetwork(n_features, n_classes, n_classes)
+    model = RBFNetwork(n_features, 6, n_classes)
     clf = CClassifierPyTorchRBFNetwork(model,
                                        loss=nn.CrossEntropyLoss(),
                                        optimizer=optim.SGD(model.parameters(), lr=1e-2),
@@ -43,13 +44,13 @@ if __name__ == '__main__':
                                        epochs=250,
                                        batch_size=32,
                                        track_prototypes=True,
-                                       random_state=seed)
+                                       random_state=1234)
 
-    # Speedup training by prototype init.
-    proto = CArray.zeros((n_classes, tr.X.shape[1]))
-    for c in range(n_classes):
-        proto[c, :] = tr.X[tr.Y == c, :][0, :]
-    model.prototypes = [torch.Tensor(proto.tondarray()).float()]
+    # # Speedup training by prototype init.
+    # proto = CArray.zeros((n_classes, tr.X.shape[1]))
+    # for c in range(n_classes):
+    #     proto[c, :] = tr.X[tr.Y == c, :][0, :]
+    # model.prototypes = [torch.Tensor(proto.tondarray()).float()]
 
     # Fit
     clf.verbose = 2
@@ -77,9 +78,9 @@ if __name__ == '__main__':
     for proto in prototypes:
         fig.sp.plot_path(proto)
 
-    fig.savefig('rbfnet_blobs')
+    fig.savefig('rbfnet_blobs_' + str(seed))
 
     # Dump to disk
-    clf_rej.save("rbfnet_blobs")
+    clf_rej.save("rbfnet_blobs_" + str(seed))
 
     print("done?")

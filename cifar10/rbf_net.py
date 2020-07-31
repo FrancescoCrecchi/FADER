@@ -59,7 +59,6 @@ if __name__ == '__main__':
     #     proto[c, :] = tr_sample.X[tr_sample.Y == c, :][0, :]
     # rbf_net.prototypes = proto
 
-
     # Fit DNR
     rbf_net.verbose = 2  # DEBUG
     rbf_net.fit(tr_sample.X, tr_sample.Y)

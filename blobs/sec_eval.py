@@ -6,7 +6,7 @@ from secml.ml import CNormalizerMinMax
 
 from mnist.attack_dnn import security_evaluation
 
-CLF = 'svm'
+CLF = 'rbfnet'
 if __name__ == '__main__':
     seed = 999
 
@@ -27,11 +27,11 @@ if __name__ == '__main__':
     # ts.X = nmz.transform(ts.X)
 
     # Load attack
-    pgd_ls_attack = CAttackEvasionPGDLS.load('{}_attack.gz'.format(CLF))
+    pgd_ls_attack = CAttackEvasionPGDLS.load('{}_attack_{}.gz'.format(CLF, seed))
 
     # Run sec_eval
     eps = CArray.arange(start=0, step=0.1, stop=5+1e-5)
     sec_eval = security_evaluation(pgd_ls_attack, ts, eps, double_init=False)
 
     # Dump to disk
-    sec_eval.save('{}_sec_eval'.format(CLF))
+    sec_eval.save('{}_{}_sec_eval'.format(CLF, seed))
