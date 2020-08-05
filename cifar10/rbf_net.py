@@ -9,8 +9,11 @@ from cifar10.fit_dnn import get_datasets
 
 # PARAMETERS
 SIGMA = 0.
-EPOCHS = 250
+EPOCHS = 50
 BATCH_SIZE = 32
+# FNAME = 'rbf_net_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS)
+# FNAME = 'rbf_net_last3'
+FNAME = 'rbf_net_fixed_betas'
 
 
 N_TRAIN, N_TEST = 10000, 1000
@@ -47,11 +50,15 @@ if __name__ == '__main__':
                                     sigma=SIGMA,              # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
                                     random_state=random_state)
 
-    # Initialize prototypes with some training samples
-    h = max(n_hiddens)  # HACK: "Nel piu' ci sta il meno..."
-    idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
-    proto = tr_sample.X[idxs, :]
-    rbf_net.prototypes = proto
+    print("RBF network config:")
+    for l, h in zip(layers, n_hiddens):
+        print("{} -> {}".format(l, h))
+
+    # # Initialize prototypes with some training samples
+    # h = max(n_hiddens)  # HACK: "Nel piu' ci sta il meno..."
+    # idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
+    # proto = tr_sample.X[idxs, :]
+    # rbf_net.prototypes = proto
 
     # # 1 prototype per class init.
     # proto = CArray.zeros((10, tr_sample.X.shape[1]))
@@ -59,6 +66,17 @@ if __name__ == '__main__':
     #     proto[c, :] = tr_sample.X[tr_sample.Y == c, :][0, :]
     # rbf_net.prototypes = proto
 
+    # Rule of thumb 'gamma' init
+    gammas = []
+    for i in range(len(n_hiddens)):
+        d = rbf_net._num_features[i].item()
+        gammas.append(CArray([1/d] * n_hiddens[i]))
+    rbf_net.betas = gammas
+    # Avoid training for betas
+    rbf_net.train_betas = False
+    print("-> Gamma init. with rule of thumb and NOT trained <-")
+
+    print("\n Training:")
     # Fit DNR
     rbf_net.verbose = 2  # DEBUG
     rbf_net.fit(tr_sample.X, tr_sample.Y)
@@ -80,4 +98,4 @@ if __name__ == '__main__':
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
 
     # Dump to disk
-    clf_rej.save('rbf_net_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS))
+    clf_rej.save(FNAME)

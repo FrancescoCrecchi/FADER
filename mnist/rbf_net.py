@@ -134,14 +134,28 @@ class CClassifierRBFNetwork(CClassifier):
         self._clf.model.prototypes = proto_feats
 
     @property
+    def betas(self):
+        return [CArray(sigma.clone().detach().cpu().numpy()) for sigma in self._clf._model.betas]
+
+    @betas.setter
+    def betas(self, value):
+        self._clf.model.betas = [(torch.Tensor(x.tondarray()).to(self._clf._device)) for x in value]
+
+    @property
+    def train_betas(self):
+        return self._clf._model.train_betas
+
+    @train_betas.setter
+    def train_betas(self, value):
+        self._clf.model.train_betas = value
+
+    @property
     def history(self):
         return self._clf._history
 
     @property
     def _grad_requires_forward(self):
         return True
-
-    # TODO: Expose Betas
 
 
 class CClassifierRejectRBFNet(CClassifierRejectThreshold):
