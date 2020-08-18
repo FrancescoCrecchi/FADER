@@ -125,13 +125,7 @@ class CClassifierDeepRBFNetwork(CClassifier):
 
     @property
     def prototypes(self):
-        proto = {'layer_clfs': {}}
-        # Layer clfs prototypes
-        for l in self._layers:
-            proto['layer_clfs'][l] = self._clf.model._layer_clfs[l].prototypes[0].clone().detach().numpy()
-        # # Combiner prototypes
-        # proto['combiner'] = self._clf.model._combiner.prototypes[0].clone().detach().numpy()
-        return proto
+        return self._clf.model.prototypes
 
     @prototypes.setter
     def prototypes(self, dset):
@@ -139,6 +133,8 @@ class CClassifierDeepRBFNetwork(CClassifier):
         Set 'DeepRBFNetOnDNN' layer_clfs and combiner prototypes (same Xs for all)
         :param value: Input prototypes vectors
         '''
+        proto = []
+
         # Unpack and reshape
         x, y = dset.X, dset.Y
 
@@ -147,7 +143,7 @@ class CClassifierDeepRBFNetwork(CClassifier):
         # Unpack to 'layer_clfs'
         start = 0
         for i in range(len(self._layers)):
-            self._clf.model._layer_clfs[i].prototypes = [f_x[:self._n_hiddens[i], start:start+self._num_features[i].item()]]
+            proto.append(f_x[:self._n_hiddens[i], start:start+self._num_features[i].item()])
             start += self._num_features[i].item()
 
         # Select one sample per class to init. combiner prototypes
@@ -173,31 +169,19 @@ class CClassifierDeepRBFNetwork(CClassifier):
             fx.append(out)
         # Concatenate into a tensor - shape: (n_samples, n_classes * n_layers)
         fx = torch.cat(fx, 1)
-        self._clf.model._combiner.prototypes = [fx]
+        proto.append(fx)
+
+        # Apply
+        self._clf.model.prototypes = proto
 
     @property
     def betas(self):
-        res = []
-        # 'layer_clfs'
-        for l in range(len(self._layers)):
-            b = self._clf.model._layer_clfs[l].rbf_layers[0].sigmas
-            res.append(CArray(b.clone().detach().cpu().numpy()))
-        # 'combiner'
-        b = self._clf.model._combiner.rbf_layers[0].sigmas
-        res.append(CArray(b.clone().detach().cpu().numpy()))
-
+        res = [CArray(b) for b in self._clf.model.betas]
         return res
 
     @betas.setter
     def betas(self, value):
-        # 'layer_clfs'
-        assert len(value) == len(self._n_hiddens), "Something wrong here!"
-        for l in range(len(self._layers)):
-            self._clf.model._layer_clfs[l].rbf_layers[0].sigmas.data = \
-                torch.Tensor(value[l].tondarray()).to(self._clf._device).data
-        # 'combiner'
-        self._clf.model._combiner.rbf_layers[0].sigmas.data = \
-            torch.Tensor(value[-1].tondarray()).to(self._clf._device).data
+        self._clf.model.betas = [torch.Tensor(b.tondarray()).to(self._device) for b in value]
 
     @property
     def train_betas(self):
@@ -206,6 +190,14 @@ class CClassifierDeepRBFNetwork(CClassifier):
     @train_betas.setter
     def train_betas(self, value):
         self._clf.model.train_betas = value
+
+    @property
+    def train_prototypes(self):
+        return self._clf._model.train_prototypes
+
+    @train_prototypes.setter
+    def train_prototypes(self, value):
+        self._clf.model.train_prototypes = value
 
     @property
     def history(self):

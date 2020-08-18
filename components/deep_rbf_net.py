@@ -61,6 +61,8 @@ class DeepRBFNetwork(nn.Module):
 
         # Flags
         self._train_betas = True
+        self._train_prototypes = True
+
 
     def forward(self, x):
         f_x = []
@@ -86,6 +88,47 @@ class DeepRBFNetwork(nn.Module):
         return out
 
     @property
+    def prototypes(self):
+        proto = []
+        # Layer clfs prototypes
+        for l in range(self._n_layers):
+            proto.append(self._layer_clfs[l].prototypes[0].clone().detach().cpu().numpy())
+        # Combiner prototypes
+        proto.append(self._combiner.prototypes[0].clone().detach().cpu().numpy())
+        return proto
+
+    @prototypes.setter
+    def prototypes(self, value):
+        assert len(value) ==  self._n_layers + 1, "Something wrong here!"
+        # 'layer_clfs'
+        for l in range(self._n_layers):
+            self._layer_clfs[l].prototypes = [value[l]]
+        # 'combiner'
+        self._combiner.prototypes = [value[-1]]
+
+    @property
+    def betas(self):
+        res = []
+        # 'layer_clfs'
+        for l in range(self._n_layers):
+            b = self._layer_clfs[l].rbf_layers[0].sigmas
+            res.append(b.clone().detach().cpu().numpy())
+        # 'combiner'
+        b = self._combiner.rbf_layers[0].sigmas
+        res.append(b.clone().detach().cpu().numpy())
+
+        return res
+
+    @betas.setter
+    def betas(self, value):
+        # 'layer_clfs'
+        assert len(value) == self._n_layers + 1, "Something wrong here!"
+        for l in range(self._n_layers):
+            self._layer_clfs[l].betas = [value[l]]
+        # 'combiner'
+        self._combiner.betas = [value[-1]]
+
+    @property
     def train_betas(self):
         return self._train_betas
 
@@ -95,6 +138,20 @@ class DeepRBFNetwork(nn.Module):
         self._train_betas = value
         # '_layer_clfs'
         for i in range(self._n_layers):
-            self._layer_clfs[i].rbf_layers[0].sigmas.requires_grad = self._train_betas
+            self._layer_clfs[i].train_betas = self._train_betas
         # '_combiner'
-        self._combiner.rbf_layers[0].sigmas.requires_grad = self._train_betas
+        self._combiner.train_betas = self._train_betas
+
+    @property
+    def train_prototypes(self):
+        return self._train_prototypes
+
+    @train_prototypes.setter
+    def train_prototypes(self, value):
+        assert isinstance(value, bool), "Only boolean flags allowed!"
+        self._train_prototypes = value
+        # '_layer_clfs'
+        for i in range(self._n_layers):
+            self._layer_clfs[i].train_prototypes = self._train_prototypes
+        # '_combiner'
+        self._combiner.train_prototypes = self._train_prototypes

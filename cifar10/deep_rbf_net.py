@@ -9,7 +9,7 @@ from mnist.rbf_net import CClassifierRejectRBFNet, plot_train_curves
 
 # PARAMETERS
 SIGMA = 0.
-EPOCHS = 100
+EPOCHS = 10
 BATCH_SIZE = 32
 
 
@@ -52,6 +52,10 @@ if __name__ == '__main__':
     # idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
     # proto = tr_sample[idxs, :]  # HACK: Needed also Y
     # deep_rbf_net.prototypes = proto
+    # print("-> Prototypes init. from training set <-")
+    # # # DEBUG: Avoid training prototypes
+    # # deep_rbf_net.train_prototypes = False
+    # # print("-> Prototypes init. from training set and NOT trained <-")
 
     # Rule of thumb 'gamma' init
     gammas = []
