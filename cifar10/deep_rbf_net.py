@@ -9,7 +9,7 @@ from mnist.rbf_net import CClassifierRejectRBFNet, plot_train_curves
 
 # PARAMETERS
 SIGMA = 0.
-EPOCHS = 250
+EPOCHS = 100
 BATCH_SIZE = 32
 
 
@@ -37,8 +37,8 @@ if __name__ == '__main__':
     ts_sample = ts[ts_idxs[N_TEST:], :]
 
     # Create DNR
-    layers = ['features:23', 'features:26'] #, 'features:29']
-    n_hiddens = [2000, 1000]                #, 100]  # TODO: Set this according to DNR features
+    layers = ['features:23', 'features:26', 'features:29']
+    n_hiddens = [500, 300, 100] + [100]  # TODO: Set this according to DNR features
     deep_rbf_net = CClassifierDeepRBFNetwork(dnn, layers,
                                              n_hiddens=n_hiddens,
                                              epochs=EPOCHS,
@@ -47,11 +47,21 @@ if __name__ == '__main__':
                                              sigma=SIGMA,  # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
                                              random_state=random_state)
 
-    # Initialize prototypes with some training samples
-    h = max(n_hiddens)  # HACK: "Nel piu' ci sta il meno..."
-    idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
-    proto = tr_sample[idxs, :]  # HACK: Needed also Y
-    deep_rbf_net.prototypes = proto
+    # # Initialize prototypes with some training samples
+    # h = max(n_hiddens)  # HACK: "Nel piu' ci sta il meno..."
+    # idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
+    # proto = tr_sample[idxs, :]  # HACK: Needed also Y
+    # deep_rbf_net.prototypes = proto
+
+    # Rule of thumb 'gamma' init
+    gammas = []
+    for i in range(len(n_hiddens)):
+        d = deep_rbf_net._num_features[i].item()
+        gammas.append(CArray([1 / d] * n_hiddens[i]))
+    deep_rbf_net.betas = gammas
+    # Avoid training for betas
+    deep_rbf_net.train_betas = False
+    print("-> Gamma init. with rule of thumb and NOT trained <-")
 
     # Fit DNR
     deep_rbf_net.verbose = 2  # DEBUG

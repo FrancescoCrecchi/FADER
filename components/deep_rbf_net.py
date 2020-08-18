@@ -45,16 +45,22 @@ class DeepRBFNetwork(nn.Module):
         for i in range(self._n_layers):
             self._layer_clfs.append(RBFNetwork(self.n_features[i], self.n_hiddens[i], n_classes))
         self._stack = Stack()
-        # # Set combiner on top
+        # Set combiner on top
+        ## 1) RBF NETS
         # self._combiner = nn.ModuleList()
         # for _ in range(n_classes):
         #     # 'n_hiddens[-1]' combiner rbf neurons per class: RBFUnit + LinearUnit -> Class score
         #     rbfnet = RBFNetwork(self._n_layers, self.n_hiddens[-1], 1)
         #     self._combiner.append(rbfnet)
+        ## 2) LINEAR LAYER
         # self._combiner = nn.Linear(self.n_classes * self._n_layers, n_classes)
-        self._combiner = Mean()
+        ## 3) MEAN LAYER
+        # self._combiner = Mean()
+        # 4) SINGLE RBF NET
+        self._combiner = RBFNetwork(self.n_classes * self._n_layers, self.n_hiddens[-1], n_classes)
 
-        # TODO: FIX BETAS?
+        # Flags
+        self._train_betas = True
 
     def forward(self, x):
         f_x = []
@@ -73,6 +79,22 @@ class DeepRBFNetwork(nn.Module):
         # out = torch.cat(out, 1)
         ## 2) LINEAR LAYER
         # out = self._combiner(f_x.view(x.shape[0], -1))
-        # 3) MEAN LAYER
-        out = self._combiner(f_x, 2)    # (n_samples, n_classes)
+        ## 3) MEAN LAYER
+        # out = self._combiner(f_x, 2)    # (n_samples, n_classes)
+        # 4) SINGLE RBF NET
+        out = self._combiner(f_x.view(x.shape[0], -1))
         return out
+
+    @property
+    def train_betas(self):
+        return self._train_betas
+
+    @train_betas.setter
+    def train_betas(self, value):
+        assert isinstance(value, bool), "Only boolean flags allowed!"
+        self._train_betas = value
+        # '_layer_clfs'
+        for i in range(self._n_layers):
+            self._layer_clfs[i].rbf_layers[0].sigmas.requires_grad = self._train_betas
+        # '_combiner'
+        self._combiner.rbf_layers[0].sigmas.requires_grad = self._train_betas

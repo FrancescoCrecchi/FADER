@@ -33,7 +33,7 @@ def deep_rbf_network(dnn, layers, n_hiddens=100,
     return CClassifierPyTorchRBFNetwork(model,
                                         loss=loss,
                                         optimizer=optimizer,
-                                        input_shape=(sum(n_feats, )),
+                                        input_shape=(sum(n_feats), ),
                                         epochs=epochs,
                                         batch_size=batch_size,
                                         validation_data=validation_data,
@@ -67,7 +67,8 @@ class CClassifierDeepRBFNetwork(CClassifier):
         # Utils
         self.input_shape = dnn.input_shape
         self._classes = dnn.classes
-        self._num_features = CArray([CArray(dnn.get_layer_shape(l)[1:]).prod() for l in layers])
+        self._num_features = CArray([CArray(dnn.get_layer_shape(l)[1:]).prod() for l in layers]
+                                    + [self.n_classes * len(self._layers)])
         self._device = self._clf._device
 
 
@@ -83,7 +84,7 @@ class CClassifierDeepRBFNetwork(CClassifier):
         caching = self._cached_x is not None
 
         # Compute layer representations
-        concat_scores = CArray.zeros(shape=(x.shape[0], self._num_features.sum()))
+        concat_scores = CArray.zeros(shape=(x.shape[0], self._num_features[:-1].sum()))
         start = 0
         for i, l in enumerate(self._layers):
             out = self._features_extractors[l].forward(x, caching=caching)
@@ -149,34 +150,62 @@ class CClassifierDeepRBFNetwork(CClassifier):
             self._clf.model._layer_clfs[i].prototypes = [f_x[:self._n_hiddens[i], start:start+self._num_features[i].item()]]
             start += self._num_features[i].item()
 
-        # # Select one sample per class to init. combiner prototypes
-        # n_comb_units = self._n_hiddens[-1]
-        # comb_x = CArray.zeros((self.n_classes * n_comb_units, x.shape[1]))
-        # start = 0
-        # for c in range(self.n_classes):
-        #     # Selecting the fist ones for each class, for simplicity
-        #     comb_x[start:start+n_comb_units, :] = x[y == c, :][:n_comb_units, :]
-        #     start += n_comb_units
-        #
-        # # Run dnn on them
-        # f_x = self._create_scores_dataset(comb_x)
-        # f_x = torch.Tensor(f_x.tondarray()).float().to(self._device)
-        # n_samples = f_x.shape[0]
-        #
-        # # Pack activations
-        # fx = []
-        # start = 0
-        # for i in range(len(self._layers)):
-        #     out = self._clf.model._layer_clfs[i](f_x[:, start:start+self._num_features[i].item()].view(n_samples, -1))
-        #     start += self._num_features[i].item()
-        #     fx.append(out)
-        # # Stack on 3d dimension
-        # fx = torch.stack(fx, 2)
-        # # Set to combiner prototypes per class
-        # start = 0
-        # for c in range(self.n_classes):
-        #     self._clf.model._combiner[c].prototypes = [fx[start:start+n_comb_units, c, :]]
-        #     start += n_comb_units
+        # Select one sample per class to init. combiner prototypes
+        n_comb_units_per_class = self._n_hiddens[-1]//self.n_classes
+        comb_x = CArray.zeros((self.n_classes * n_comb_units_per_class, x.shape[1]))
+        start = 0
+        for c in range(self.n_classes):
+            # Selecting the fist ones for each class, for simplicity
+            comb_x[start:start+n_comb_units_per_class, :] = x[y == c, :][:n_comb_units_per_class, :]
+            start += n_comb_units_per_class
+
+        # Run dnn on them
+        f_x = self._create_scores_dataset(comb_x)
+        f_x = torch.Tensor(f_x.tondarray()).float().to(self._device)
+        n_samples = f_x.shape[0]
+
+        # Pack activations
+        fx = []
+        start = 0
+        for i in range(len(self._layers)):
+            out = self._clf.model._layer_clfs[i](f_x[:, start:start+self._num_features[i].item()].view(n_samples, -1))
+            start += self._num_features[i].item()
+            fx.append(out)
+        # Concatenate into a tensor - shape: (n_samples, n_classes * n_layers)
+        fx = torch.cat(fx, 1)
+        self._clf.model._combiner.prototypes = [fx]
+
+    @property
+    def betas(self):
+        res = []
+        # 'layer_clfs'
+        for l in range(len(self._layers)):
+            b = self._clf.model._layer_clfs[l].rbf_layers[0].sigmas
+            res.append(CArray(b.clone().detach().cpu().numpy()))
+        # 'combiner'
+        b = self._clf.model._combiner.rbf_layers[0].sigmas
+        res.append(CArray(b.clone().detach().cpu().numpy()))
+
+        return res
+
+    @betas.setter
+    def betas(self, value):
+        # 'layer_clfs'
+        assert len(value) == len(self._n_hiddens), "Something wrong here!"
+        for l in range(len(self._layers)):
+            self._clf.model._layer_clfs[l].rbf_layers[0].sigmas.data = \
+                torch.Tensor(value[l].tondarray()).to(self._clf._device).data
+        # 'combiner'
+        self._clf.model._combiner.rbf_layers[0].sigmas.data = \
+            torch.Tensor(value[-1].tondarray()).to(self._clf._device).data
+
+    @property
+    def train_betas(self):
+        return self._clf._model.train_betas
+
+    @train_betas.setter
+    def train_betas(self, value):
+        self._clf.model.train_betas = value
 
     @property
     def history(self):
@@ -185,8 +214,6 @@ class CClassifierDeepRBFNetwork(CClassifier):
     @property
     def _grad_requires_forward(self):       # TODO: Do we need this?! (in CClassifierRejectRBFNet)
         return True
-
-    # TODO: Expose Betas
 
 
 # PARAMETERS
