@@ -101,32 +101,33 @@ if __name__ == '__main__':
     # HACK: Save attack parameters
     original_params = pgd_attack.solver_params.copy()
 
-    cbks = []
-    if args.clf == 'dnr':
-        # AttackParamsSchedulerCallback
-        d = {
-            1.0: {
-                'eta': 0.1,
-                'eta_min': 0.1,
-                'eta_pgd': 0.1,
-                'max_iter': 40,
-                'eps': 1e-10
-            }
-        }
-        attack_scheduler_cbk = AttackParamsSchedulerCallback(d)
-        cbks.append(attack_scheduler_cbk)
-
-    # MeasurePerformanceCallback
-    measure_perf_cbk = MeasurePerformanceCallback()
-    measure_perf_cbk.verbose = 1
-    cbks.append(measure_perf_cbk)
-
     for it in range(args.iter):
 
         print(" - It", str(it))
         # Select a sample of ts data
         it_idxs = CArray.randsample(ts.X.shape[0], shape=args.n_samples, random_state=random_state+it)
         ts_sample = ts[it_idxs, :]
+
+        # Callbacks
+        cbks = []
+        if args.clf == 'dnr':
+            # AttackParamsSchedulerCallback
+            d = {
+                1.0: {
+                    'eta': 0.1,
+                    'eta_min': 0.1,
+                    'eta_pgd': 0.1,
+                    'max_iter': 40,
+                    'eps': 1e-10
+                }
+            }
+            attack_scheduler_cbk = AttackParamsSchedulerCallback(d)
+            cbks.append(attack_scheduler_cbk)
+
+        # MeasurePerformanceCallback
+        measure_perf_cbk = MeasurePerformanceCallback()
+        measure_perf_cbk.verbose = 1
+        cbks.append(measure_perf_cbk)
 
         # "Used to perturb all test samples"
         sec_eval = security_evaluation(pgd_attack,

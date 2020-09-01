@@ -64,12 +64,17 @@ if __name__ == '__main__':
         'kernel.gamma': 1e-2
     })
 
-    # We can now create a classifier with reject
-    clf.preprocess = None  # TODO: "preprocess should be passed to outer classifier..."
-    clf_rej = CClassifierRejectThreshold(clf, 0., preprocess=feat_extr)
-
     # We can now fit the clf_rej
-    clf_rej.fit(tr_sample.X, tr_sample.Y)
+    clf.fit(tr_sample.X, tr_sample.Y)
+
+    # Check test performance
+    y_pred = clf.predict(ts.X, return_decision_function=False)
+    acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
+    print("NR Accuracy: {}".format(acc))
+
+    # We can now create a classifier with reject
+    clf_rej = CClassifierRejectThreshold(clf, 0.)
+
     # Set threshold (FPR: 10%)
     # TODO: "..and set the rejection threshold for (D)NR to reject 10% of the samples when no attack is performed
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)

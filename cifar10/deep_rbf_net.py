@@ -9,7 +9,7 @@ from mnist.rbf_net import CClassifierRejectRBFNet, plot_train_curves
 
 # PARAMETERS
 SIGMA = 0.
-EPOCHS = 10
+EPOCHS = 100
 BATCH_SIZE = 32
 
 
@@ -88,4 +88,4 @@ if __name__ == '__main__':
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
 
     # Dump to disk
-    clf_rej.save('deep_rbf_net_train_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS))
+    clf_rej.save('deep_rbf_net_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS))

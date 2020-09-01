@@ -24,8 +24,8 @@ if __name__ == '__main__':
 
     # Create DNR
     layers = ['features:23', 'features:26', 'features:29']
-    combiner = CClassifierSVMM(kernel=CKernelRBF(gamma=1), C=1)
     layer_clf = CClassifierSVMM(kernel=CKernelRBF(gamma=1), C=1)
+    combiner = CClassifierSVMM(kernel=CKernelRBF(gamma=1), C=1)
     dnr = CClassifierDNR(combiner, layer_clf, dnn, layers, -1000)
 
     '''
@@ -67,4 +67,4 @@ if __name__ == '__main__':
     # Set threshold (FPR: 10%)
     dnr.threshold = dnr.compute_threshold(0.1, ts_sample)
     # Dump to disk
-    dnr.save('dnr_NEW')
+    dnr.save('dnr')
