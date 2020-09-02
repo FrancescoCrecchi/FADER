@@ -4,13 +4,20 @@ from torch import nn
 import torch_rbf.torch_rbf as rbf
 
 
-def CategoricalHingeLoss(input, target):
-    # One-hot encoding (HACK: num_classes=10)
-    target = nn.functional.one_hot(target.to(int), num_classes=3)
-    pos = torch.sum(target * input, dim=-1)
-    neg = torch.max((1. - target) * input, dim=-1).values  # HACK: https://pytorch.org/docs/stable/generated/torch.max.html
-    # HACK: Forcing 'reduction' = 'mean'
-    return torch.mean(torch.max(neg - pos + 1., torch.zeros_like(neg)))
+# https://github.com/tensorflow/tensorflow/blob/v2.3.0/tensorflow/python/keras/losses.py#L1389
+class CategoricalHingeLoss(nn.Module):
+
+    def __init__(self, num_classes=-1):
+        super(CategoricalHingeLoss, self).__init__()
+        self._num_classes = num_classes
+
+    def forward(self, input, target):
+        # One-hot encoding
+        target = nn.functional.one_hot(target.to(int), num_classes=self._num_classes)
+        pos = torch.sum(target * input, dim=-1)
+        neg = torch.max((1. - target) * input, dim=-1).values  # HACK: https://pytorch.org/docs/stable/generated/torch.max.html
+        # HACK: Forcing 'reduction' = 'mean'
+        return torch.mean(torch.max(neg - pos + 1., torch.zeros_like(neg)))
 
 
 class RBFNetwork(nn.Module):
@@ -266,7 +273,8 @@ if __name__ == '__main__':
     # y_true = torch.Tensor([[0., 1., 0.], [0., 0., 1.]])
     y_true = torch.Tensor([1, 2])
     y_pred = torch.Tensor([[0.1, 0.3, 0.6], [0.2, 0.2, 0.6]])
-    l = CategoricalHingeLoss(y_pred, y_true)
+    loss = CategoricalHingeLoss()
+    l = loss(y_pred, y_true)
     print(l)
 
     print("done?")
