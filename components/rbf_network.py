@@ -4,6 +4,15 @@ from torch import nn
 import torch_rbf.torch_rbf as rbf
 
 
+def CategoricalHingeLoss(input, target):
+    # One-hot encoding (HACK: num_classes=10)
+    target = nn.functional.one_hot(target.to(int), num_classes=3)
+    pos = torch.sum(target * input, dim=-1)
+    neg = torch.max((1. - target) * input, dim=-1).values  # HACK: https://pytorch.org/docs/stable/generated/torch.max.html
+    # HACK: Forcing 'reduction' = 'mean'
+    return torch.mean(torch.max(neg - pos + 1., torch.zeros_like(neg)))
+
+
 class RBFNetwork(nn.Module):
 
     def __init__(self, n_features, n_hiddens, n_classes):
@@ -251,6 +260,13 @@ if __name__ == '__main__':
     # print(loss)
     # loss.backward()
 
-    test()
+    # test()
+
+    import numpy as np
+    # y_true = torch.Tensor([[0., 1., 0.], [0., 0., 1.]])
+    y_true = torch.Tensor([1, 2])
+    y_pred = torch.Tensor([[0.1, 0.3, 0.6], [0.2, 0.2, 0.6]])
+    l = CategoricalHingeLoss(y_pred, y_true)
+    print(l)
 
     print("done?")
