@@ -7,15 +7,15 @@ from secml.ml.classifiers.reject import CClassifierRejectThreshold
 from secml.ml.peval.metrics import CMetricAccuracy
 
 from components.c_classifier_pytorch_rbf_network import CClassifierPyTorchRBFNetwork
-from components.rbf_network import RBFNetwork
+from components.rbf_network import RBFNetwork, CategoricalHingeLoss
 
 from mnist.cnn_mnist import cnn_mnist_model
 from mnist.fit_dnn import get_datasets
 
 
 def rbf_network(dnn, layers, n_hiddens=100,
-                epochs=300, batch_size=32,
-                validation_data=None, sigma=0.0,
+                epochs=300, batch_size=32, validation_data=None,
+                weight_decay=0.0, sigma=0.0,
                 track_prototypes=False, random_state=None):
     # Use CUDA
     use_cuda = torch.cuda.is_available()
@@ -28,8 +28,9 @@ def rbf_network(dnn, layers, n_hiddens=100,
     # RBFNetwork
     model = RBFNetwork(n_feats, n_hiddens, dnn.n_classes)
     # Loss & Optimizer
-    loss = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters())  # --> TODO: Expose optimizer params <--
+    # loss = nn.CrossEntropyLoss()
+    loss = CategoricalHingeLoss(dnn.n_classes)
+    optimizer = optim.Adam(model.parameters(), weight_decay=weight_decay)
     # HACK: TRACKING PROTOTYPES
     return CClassifierPyTorchRBFNetwork(model,
                                         loss=loss,
@@ -48,7 +49,8 @@ class CClassifierRBFNetwork(CClassifier):
     def __init__(self, dnn, layers, n_hiddens=100,
                  epochs=300, batch_size=32,
                  validation_data=None,
-                 sigma=0.0,  # DEFAULT: No regularization!
+                 weight_decay=0.0,  # DEFAULT: No regularization!
+                 sigma=0.0,         # DEFAULT: No regularization!
                  track_prototypes=False,
                  random_state=None):
 
@@ -58,7 +60,11 @@ class CClassifierRBFNetwork(CClassifier):
         self._n_hiddens = n_hiddens
 
         # RBF Network
-        self._clf = rbf_network(dnn, layers, n_hiddens, epochs, batch_size, validation_data, sigma, track_prototypes, random_state)
+        self._clf = rbf_network(dnn, layers, n_hiddens,
+                                epochs, batch_size, validation_data,
+                                weight_decay, sigma,
+                                track_prototypes,
+                                random_state)
         super(CClassifierRBFNetwork, self).__init__()
 
         self._layers = layers
@@ -166,9 +172,11 @@ class CClassifierRejectRBFNet(CClassifierRejectThreshold):
 
 
 # PARAMETERS
-SIGMA = 0.01
+SIGMA = 0.0
 EPOCHS = 250
 BATCH_SIZE = 128
+# FNAME = 'rbf_net_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS)
+FNAME = 'rbfnet_nr_like'
 
 
 def plot_train_curves(history, sigma):
@@ -209,8 +217,10 @@ if __name__ == '__main__':
     ts_sample = ts[ts_idxs[N_TEST:], :]
 
     # Create DNR
-    layers = ['features:relu2', 'features:relu3', 'features:relu4']
-    n_hiddens = [250, 250, 50]
+    # layers = ['features:relu2', 'features:relu3', 'features:relu4']
+    # n_hiddens = [250, 250, 50]
+    layers = ['features:relu4']
+    n_hiddens = [50]
     rbf_net = CClassifierRBFNetwork(dnn, layers,
                                     n_hiddens=n_hiddens,
                                     epochs=EPOCHS,
@@ -246,4 +256,4 @@ if __name__ == '__main__':
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
 
     # Dump to disk
-    clf_rej.save('rbf_net_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS))
+    clf_rej.save(FNAME)

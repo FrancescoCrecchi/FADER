@@ -1,12 +1,12 @@
-from secml.adv.attacks import CAttackEvasionPGDLS
+from secml.adv.attacks import CAttackEvasionPGDExp
 from secml.array import CArray
 from secml.data.loader import CDLRandomBlobs
 from secml.data.splitter import CTrainTestSplit
-from secml.ml import CNormalizerMinMax
 
 from mnist.attack_dnn import security_evaluation
 
-CLF = 'rbfnet'
+CLF = 'svm'
+# TYPE = 'cat_hinge'
 if __name__ == '__main__':
     seed = 999
 
@@ -27,11 +27,15 @@ if __name__ == '__main__':
     # ts.X = nmz.transform(ts.X)
 
     # Load attack
-    pgd_ls_attack = CAttackEvasionPGDLS.load('{}_attack_{}.gz'.format(CLF, seed))
+    pgd_attack = CAttackEvasionPGDExp.load('{}_attack.gz'.format(CLF))
+    # pgd_attack = CAttackEvasionPGDExp.load('{}_attack_{}.gz'.format(CLF, seed))
+    # pgd_attack = CAttackEvasionPGDExp.load('{}_attack_{}.gz'.format(CLF, TYPE))
 
     # Run sec_eval
     eps = CArray.arange(start=0, step=0.1, stop=5+1e-5)
-    sec_eval = security_evaluation(pgd_ls_attack, ts, eps, double_init=False)
+    sec_eval = security_evaluation(pgd_attack, ts, eps)
 
     # Dump to disk
-    sec_eval.save('{}_{}_sec_eval'.format(CLF, seed))
+    sec_eval.save('{}_sec_eval'.format(CLF))
+    # sec_eval.save('{}_{}_sec_eval'.format(CLF, seed))
+    # sec_eval.save('{}_{}_sec_eval'.format(CLF, TYPE))

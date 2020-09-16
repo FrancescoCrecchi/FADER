@@ -1,7 +1,6 @@
 from secml.array import CArray
-from secml.ml import CKernelRBF
+from secml.ml import CKernelRBF, CClassifierSVM
 from secml.ml.classifiers.reject import CClassifierDNR
-from secml.ml.classifiers.sklearn.c_classifier_svm_m import CClassifierSVMM
 from secml.ml.peval.metrics import CMetricAccuracy
 
 from mnist.cnn_mnist import cnn_mnist_model
@@ -24,8 +23,8 @@ if __name__ == '__main__':
 
     # Create DNR
     layers = ['features:relu4', 'features:relu3', 'features:relu2']
-    combiner = CClassifierSVMM(kernel=CKernelRBF(gamma=1), C=1)
-    layer_clf = CClassifierSVMM(kernel=CKernelRBF(gamma=1), C=1)
+    combiner = CClassifierSVM(kernel=CKernelRBF(gamma=1), C=1)
+    layer_clf = CClassifierSVM(kernel=CKernelRBF(gamma=1), C=1)
     dnr = CClassifierDNR(combiner, layer_clf, dnn, layers, -1000)
 
     '''
@@ -66,7 +65,7 @@ if __name__ == '__main__':
     # Set threshold (FPR: 10%)
     dnr.threshold = dnr.compute_threshold(0.1, ts_sample)
     # Dump to disk
-    dnr.save('dnr_NEW')
+    dnr.save('dnr')
 
 
 

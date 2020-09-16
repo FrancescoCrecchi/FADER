@@ -13,18 +13,34 @@ EVAL_TYPE = 'wb'
 # CLFS = ['dnn', 'nr', 'dnr', 'tsne_rej', 'tnr']
 # CLFS = ['dnn', 'nr']
 # CLFS = ['dnn', 'nr', 'dnr_mean']
-# CLFS = ['dnn', 'nr', 'rbf_net_sigma_0.000_250']
-CLFS = ['nr', 'rbf_net_sigma_0.000_250']
+# CLFS = ['dnn', 'nr', 'rbf_net_sigma_0.000_250', 'rbf_net_nr_like', 'rbf_net_last3']
+# CLFS = ['dnn', 'nr', 'dnr'] #, 'rbf_net_sigma_0.000_250', 'rbf_net_fixed_betas', 'rbf_net_sigma_0.100_50', 'rbf_net_no_last']
+# CLFS = ['dnn', 'nr', 'dnr', 'rbf_net_sigma_0.000_250', 'deep_rbf_net_sigma_0.000_250']
+# CLFS = ['dnn', 'dnr', 'dnr_rbf'] # 'hybrid_rbfnet_svm', 'hybrid_svm_rbfnet',
+# CLFS = ['dnn', 'nr', 'dnr', 'rbf_net_sigma_0.000_250', 'deep_rbf_net_sigma_0.000_250', 'dnr_rbf']
+CLFS = ['dnn',
+        'nr',
+        'rbfnet_nr_like_wd_0e+00',
+        'rbfnet_nr_like_wd_1e-04',
+        'rbfnet_nr_like_wd_1e-05',
+        'rbfnet_nr_like_wd_1e-06',
+        'rbfnet_nr_like_wd_1e-08',
+        'rbfnet_nr_like_wd_1e-10']
+
 if DSET == 'mnist':
     EPS = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0]
 elif DSET == 'cifar10':
     EPS = [0.0, 0.05, 0.1, 0.2, 0.4, 1.0, 2.0]
 else:
     raise ValueError('Unknown dataset!')
+
 N_ITER = 3
-FNAME = 'all_'+EVAL_TYPE+'_nr_rbfnet'
+
+# FNAME = 'all_'+EVAL_TYPE+'_seval'
+FNAME = 'svm_vs_rbf_nr_like'
 EXTENSION = 'png'
 # ------------------------------------------------------
+
 
 # Plot sec_eval with reject percentage
 def rej_percentage(sec_eval_data):
@@ -34,23 +50,24 @@ def rej_percentage(sec_eval_data):
     return perf
 
 
-# def acc_rej_performance(sec_eval_data):
-#     # Compute performance for eps > 0 (i.e. CMetricAccuracyReject)
-#     acc_metric = CMetricAccuracy()
-#     rej_metric = CMetricAccuracyReject()
-#
-#     perf = CArray.zeros(shape=(sec_eval_data.param_values.size,))
-#     for k in range(sec_eval_data.param_values.size):
-#         pred = sec_eval_data.Y_pred[k]
-#         if k == 0:
-#             # CMetricAccuracy
-#             metric = acc_metric
-#         else:
-#             # CMetricAccuracyReject
-#             metric = rej_metric
-#         perf[k] = metric.performance_score(y_true=sec_eval_data.Y, y_pred=pred)
-#
-#     return perf
+def acc_rej_performance(sec_eval_data):
+    # Compute performance for eps > 0 (i.e. CMetricAccuracyReject)
+    acc_metric = CMetricAccuracy()
+    rej_metric = CMetricAccuracyReject()
+
+    perf = CArray.zeros(shape=(sec_eval_data.param_values.size,))
+    for k in range(sec_eval_data.param_values.size):
+        pred = sec_eval_data.Y_pred[k]
+        if k == 0:
+            # CMetricAccuracy
+            metric = acc_metric
+        else:
+            # CMetricAccuracyReject
+            metric = rej_metric
+        perf[k] = metric.performance_score(y_true=sec_eval_data.Y, y_pred=pred)
+        # print(perf[k])
+
+    return perf
 
 
 def compute_performance(sec_eval_data, perf_eval_fun):
@@ -108,30 +125,34 @@ if __name__ == '__main__':
             label = '$t$-NR'
         elif clf == 'tnr':
             label = 'D$t$-NR'
+        # DEBUG: REMOVE THIS!
+        # DEBUG: ========================
+        elif clf == 'nr':
+            label = 'svm-rbf'
+        elif clf == 'rbfnet_nr_like':
+            label = 'rbfnet'
+        elif clf == 'rbfnet_nr_like_wd_0e+00':
+            label = 'rbfnet_nr_like_no_reg'
+        # DEBUG: ========================
         else:
-            label = clf.upper()
+            label = clf
 
+        label = label.upper()
         print(" - Plotting ", label)
 
-        # # Plot performance
-        # eps, perf, perf_std = compute_performance(sec_evals_data, acc_rej_performance)
-        #
-        # # Compute EPS mask
-        # msk = CArray([e in EPS for e in eps])
-        #
-        # # SP1
-        # xticks = CArray.arange(len(EPS)) if EPS is not None else eps[msk]
-        # sp1.plot(xticks, perf[msk], label=label)
-        # # Plot mean and std
-        # std_up = perf + perf_std
-        # std_down = perf - perf_std
-        # std_down[std_down < 0.0] = 0.0
-        # std_down[std_up > 1.0] = 1.0
-        # sp1.fill_between(xticks, std_up[msk], std_down[msk], interpolate=False, alpha=0.2)
-        # Convenience function for plotting the Security Evaluation Curve
+        # Plot performance
+        _, perf, perf_std = compute_performance(sec_evals_data, acc_rej_performance)
+        sp1.plot(EPS, perf, label=label, marker="o")
+        # Plot mean and std
+        std_up = perf + perf_std
+        std_down = perf - perf_std
+        std_down[std_down < 0.0] = 0.0
+        std_down[std_up > 1.0] = 1.0
+        sp1.fill_between(EPS, std_up, std_down, interpolate=False, alpha=0.2)
 
-        sp1.plot_sec_eval(sec_evals_data, marker='o', label=label, mean=True, #show_average=True,
-                          metric=['accuracy'] + ['accuracy-reject'] * (sec_evals_data[0].param_values.size - 1))
+        # # Convenience function for plotting the Security Evaluation Curve
+        # sp1.plot_sec_eval(sec_evals_data, marker='o', label=label, mean=True, #show_average=True,
+        #                   metric=['accuracy'] + ['accuracy-reject'] * (sec_evals_data[0].param_values.size - 1))
 
 
         # Plot reject percentage
@@ -155,12 +176,12 @@ if __name__ == '__main__':
         'Black-box' if EVAL_TYPE == 'bb' else 'White-box',
         DSET.upper()
     ))
-    # sp1.apply_params_sec_eval()
+    sp1.apply_params_sec_eval()
 
     sp2.xscale('symlog', linthreshx=0.1)
     sp2.xticks(EPS)
     sp2.xticklabels(EPS)
-    sp2.ylim(-0.05, 1.05)
+    # sp2.ylim(-0.05, 1.05)
     sp2.xlabel('dmax')
     sp2.ylabel('Rejection rate') #("% Reject")
     sp2.apply_params_sec_eval()

@@ -34,8 +34,10 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                  epochs=10, batch_size=1, n_jobs=1, transform_train=None, validation_data=None, track_prototypes=False,
                  sigma=0.):
         super().__init__(model, loss, optimizer, optimizer_scheduler, pretrained, pretrained_classes, input_shape,
-                         random_state, preprocess, softmax_outputs, epochs, batch_size, n_jobs, transform_train,
-                         validation_data)
+                         random_state, preprocess, softmax_outputs, epochs, batch_size, n_jobs,
+                         transform_train,
+                         validation_data
+                         )
         # Internals
         self._track_prototypes = track_prototypes
         self._sigma = sigma
@@ -69,13 +71,15 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
 
         train_loader = self._data_loader(x, y, batch_size=self._batch_size,
                                          num_workers=self.n_jobs - 1,
-                                         transform=self._transform_train)  # , shuffle=True)
+                                         transform=self._transform_train,
+                                         shuffle=True
+                                         )
 
         if self._validation_data:
             vali_loader = self._data_loader(self._validation_data.X,
                                             self._validation_data.Y,
                                             batch_size=self._batch_size,
-                                            num_workers=self.n_jobs - 1)
+                                            num_workers=self.n_jobs-1)
 
         if self._history is None:  # FIRST RUN
             tr_loss, vl_loss = [], []
@@ -124,7 +128,7 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
             cum_penalty /= (batches + 1)
 
             # Linear layer weight norm
-            wd = -9999
+            wd = 0.
             # CClassifierRBFNetwork
             try:
                 wd = list(self.model.classifier.parameters())[0].norm(2).item()
@@ -132,7 +136,6 @@ class CClassifierPyTorchRBFNetwork(CClassifierPyTorch):
                 pass
             # CClassifierDeepRBFNetwork
             try:
-                wd = 0.
                 # Accounting for linear layers of '_layer_clfs' combiners
                 for clf in self.model._layer_clfs:
                     wd += list(clf._combiner.parameters())[0].norm(2).item()

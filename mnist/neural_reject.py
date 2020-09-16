@@ -1,6 +1,6 @@
 from secml.array import CArray
 from secml.ml.classifiers import CClassifierSVM
-from secml.ml.classifiers.multiclass import CClassifierMulticlassOVA
+# from secml.ml.classifiers.multiclass import CClassifierMulticlassOVA
 from secml.ml.classifiers.reject import CClassifierRejectThreshold
 from secml.ml.features import CNormalizerDNN
 from secml.ml.kernels import CKernelRBF
@@ -26,8 +26,8 @@ if __name__ == '__main__':
 
     # Create layer_classifier
     feat_extr = CNormalizerDNN(dnn, out_layer='features:relu4')
-    clf = CClassifierMulticlassOVA(CClassifierSVM, kernel=CKernelRBF(), preprocess=feat_extr)
-    clf.n_jobs = 10
+    clf = CClassifierSVM(kernel=CKernelRBF(), preprocess=feat_extr)
+    # clf.n_jobs = 10
 
     # Select 10K training data and 1K test data (sampling)
     tr_idxs = CArray.randsample(vl.X.shape[0], shape=N_TRAIN, random_state=random_state)
@@ -63,12 +63,19 @@ if __name__ == '__main__':
         'kernel.gamma': 1e-2
     })
 
-    # We can now create a classifier with reject
-    clf.preprocess = None   # TODO: "preprocess should be passed to outer classifier..."
-    clf_rej = CClassifierRejectThreshold(clf, 0., preprocess=feat_extr)
-
     # We can now fit the clf_rej
-    clf_rej.fit(tr_sample.X, tr_sample.Y)
+    clf.verbose = 2  # DEBUG
+    clf.fit(tr_sample.X, tr_sample.Y)
+    clf.verbose = 0  # DEBUG END
+
+    # Check test performance
+    y_pred = clf.predict(ts.X, return_decision_function=False)
+    acc = CMetricAccuracy().performance_score(ts.Y, y_pred)
+    print("NR Accuracy: {}".format(acc))
+
+    # We can now create a classifier with reject
+    clf_rej = CClassifierRejectThreshold(clf, 0.)
+
     # Set threshold (FPR: 10%)
     # TODO: "..and set the rejection threshold for (D)NR to reject 10% of the samples when no attack is performed
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)

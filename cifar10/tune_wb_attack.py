@@ -7,14 +7,14 @@ from secml.ml.peval.metrics import CMetricAccuracy, CMetricAccuracyReject
 
 from cifar10.cnn_cifar10 import cifar10
 from cifar10.fit_dnn import get_datasets
-from cifar10.dnr_mean import CClassifierMean
+# from cifar10.dnr_mean import CClassifierMean
 from mnist.rbf_net import CClassifierRejectRBFNet
 
 from wb_dnr_surrogate import CClassifierDNRSurrogate
 from wb_nr_surrogate import CClassifierRejectSurrogate
 
 # TODO: Set this!
-CLF = 'dnr_rbf'
+CLF = 'rbfnet_nr_like_wd_1e-10'
 USE_SMOOTHING = False
 N_SAMPLES = 100
 N_PLOTS = 10
@@ -36,7 +36,7 @@ elif 'dnr' in CLF or CLF == 'tnr':
     clf = CClassifierDNR.load(CLF+'.gz')
     if USE_SMOOTHING:
         clf = CClassifierDNRSurrogate(clf, gamma_smoothing=10)
-elif "rbf_net" in CLF:
+elif "rbf_net" in CLF or "rbfnet" in CLF:
     # DEBUG: DUPLICATED CODE TO AVOID SMOOTHING
     if USE_SMOOTHING:
         print("WARNING: SMOOTHING ACTIVATED! (IGNORING)")
@@ -62,7 +62,7 @@ tr_sample = vl[tr_idxs, :]
 
 # Defining attack
 noise_type = 'l2'   # Type of perturbation 'l1' or 'l2'
-dmax = 0.4       # Maximum perturbation
+dmax = 2.0          # Maximum perturbation
 lb, ub = 0., 1.     # Bounds of the attack space. Can be set to `None` for unbounded
 y_target = None     # None if `error-generic` or a class label for `error-specific`
 
@@ -76,8 +76,8 @@ solver_params = {
 }
 # solver_params = None
 pgd_attack = CAttackEvasionPGDExp(classifier=clf,
-                                  surrogate_classifier=clf,
-                                  surrogate_data=tr_sample,
+                                  # surrogate_classifier=clf,
+                                  double_init_ds=tr_sample,
                                   distance=noise_type,
                                   lb=lb, ub=ub,
                                   dmax=dmax,
@@ -144,6 +144,6 @@ if N > 0:
 
     fig.savefig("wb_attack_tuning.png")
 
-# Dump attack to diskt
+# Dump attack to disk
 pgd_attack.verbose = 0
 pgd_attack.save(CLF+'_wb_attack')

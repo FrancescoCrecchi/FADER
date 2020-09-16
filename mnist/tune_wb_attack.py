@@ -5,6 +5,7 @@ from secml.ml.classifiers.reject import CClassifierRejectThreshold, CClassifierD
 from secml.ml.peval.metrics import CMetricAccuracy, CMetricAccuracyReject
 
 from mnist.adv_reg_dnn import AdvNormRegClf, adv_mnist_cnn
+from mnist.cnn_mnist import cnn_mnist_model
 from mnist.fit_dnn import get_datasets
 from mnist.rbf_net import CClassifierRBFNetwork, CClassifierRejectRBFNet
 from mnist.deep_rbf_net import CClassifierDeepRBFNetwork
@@ -13,16 +14,20 @@ from wb_dnr_surrogate import CClassifierDNRSurrogate
 from wb_nr_surrogate import CClassifierRejectSurrogate
 
 # TODO: Set this!
-CLF = 'tsne_rej'
+CLF = 'dnn'
 USE_SMOOTHING = False
-N_SAMPLES = 10
+N_SAMPLES = 30
 N_PLOTS = 4
 
 random_state = 999
 _, vl, ts = get_datasets(random_state)
 
 # Load classifier and wrap it
-if CLF == 'nr' or CLF == 'tsne_rej':
+if CLF == 'dnn':
+    # Load classifier
+    clf = cnn_mnist_model()
+    clf.load_model('cnn_mnist.pkl')
+elif CLF == 'nr' or CLF == 'tsne_rej':
     # NR
     clf = CClassifierRejectThreshold.load(CLF+'.gz')
     if USE_SMOOTHING:
@@ -32,8 +37,10 @@ elif CLF == 'dnr' or CLF == 'tnr':
     clf = CClassifierDNR.load(CLF+'.gz')
     if USE_SMOOTHING:
         clf = CClassifierDNRSurrogate(clf, gamma_smoothing=1000)
-elif "deep_rbf_net" in CLF:
+elif "rbf_net" in CLF or "rbfnet" in CLF:
     # DEBUG: DUPLICATED CODE TO AVOID SMOOTHING
+    if USE_SMOOTHING:
+        print("WARNING: SMOOTHING ACTIVATED! (IGNORING)")
     clf = CClassifierRejectRBFNet.load(CLF + '.gz')
 # elif "adv_reg_dnn" in CLF:
 #     # Fit DNN
@@ -69,8 +76,7 @@ solver_params = {
 }
 # solver_params = None
 pgd_attack = CAttackEvasionPGDExp(classifier=clf,
-                                  surrogate_classifier=clf,
-                                  surrogate_data=tr_sample,
+                                  double_init_ds=tr_sample,
                                   distance=noise_type,
                                   lb=lb, ub=ub,
                                   dmax=dmax,
@@ -79,11 +85,10 @@ pgd_attack = CAttackEvasionPGDExp(classifier=clf,
 pgd_attack.verbose = 2  # DEBUG
 
 # Attack N_SAMPLES
-sample = ts[:N_SAMPLES, :]
-# Plot N_PLOTS random attack samples
-# sel_idxs = CArray.randsample(ts.X.shape[0], shape=N_SAMPLES, random_state=random_state)
-# sample = ts[sel_idxs, :]
-
+# sample = ts[:N_SAMPLES, :]
+# Plot N_SAMPLES random attack samples
+sel_idxs = CArray.randsample(ts.X.shape[0], shape=N_SAMPLES, random_state=random_state)
+sample = ts[sel_idxs, :]
 eva_y_pred, _, eva_adv_ds, _ = pgd_attack.run(sample.X, sample.Y)    # double_init=False
 
 # Compute attack performance

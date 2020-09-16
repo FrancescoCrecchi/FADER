@@ -9,8 +9,8 @@ from mnist.rbf_net import CClassifierRejectRBFNet, plot_train_curves
 
 # PARAMETERS
 SIGMA = 0.
-EPOCHS = 100
-BATCH_SIZE = 32
+EPOCHS = 250
+BATCH_SIZE = 128
 
 
 N_TRAIN, N_TEST = 10000, 1000

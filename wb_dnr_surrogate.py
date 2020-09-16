@@ -16,8 +16,9 @@ class CClassifierDNRSurrogate(CClassifierRejectSurrogate):
             - si somma al grad calcolato prima, il gradiente calcolato con i gamma modificati
             - si ripristinano i gamma originali
         '''
-        self._clf_rej._cached_x = self._cached_x
-        grad = self._clf_rej.backward(w)
+        # self._clf_rej._cached_x = self._cached_x
+        # grad = self._clf_rej.backward(w)
+        grad = self._clf_rej.gradient(self._cached_x, w)
 
         if grad.norm() < 0.01:
             self.logger.info('** Smoothing Activated ***')

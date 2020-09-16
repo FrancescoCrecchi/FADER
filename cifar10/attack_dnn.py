@@ -10,7 +10,7 @@ from cifar10.fit_dnn import get_datasets
 
 def security_evaluation(attack, dset, evals,
                         callbacks=None,
-                        double_init=False,
+                        # double_init=False,
                         save_adv_ds=False):
 
     # Security evaluation
@@ -19,7 +19,10 @@ def security_evaluation(attack, dset, evals,
 
     # Run the security evaluation using the test set
     print("Running security evaluation...")
-    seval.run_sec_eval(dset, callbacks=callbacks, double_init=double_init)
+    seval.run_sec_eval(dset,
+                       # callbacks=callbacks,
+                       # double_init=double_init
+                       )
     print("Done!")
 
     return seval

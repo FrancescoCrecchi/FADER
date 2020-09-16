@@ -1,9 +1,9 @@
 from secml.data.loader import CDLRandomBlobs
 from secml.data.splitter import CTrainTestSplit
 from secml.figure import CFigure
-from secml.ml import CKernelRBF
+from secml.ml import CKernelRBF, CClassifierSVM
 from secml.ml.classifiers.reject import CClassifierRejectThreshold
-from secml.ml.classifiers.sklearn.c_classifier_svm_m import CClassifierSVMM
+
 from secml.ml.peval.metrics import CMetricAccuracy
 
 from toy.gamma_estimation import gamma_estimation
@@ -25,7 +25,7 @@ if __name__ == '__main__':
 
     # Create a SVM-RBF classifier
     gamma = gamma_estimation(tr, factor=0.5)
-    clf = CClassifierSVMM(kernel=CKernelRBF(gamma=gamma))
+    clf = CClassifierSVM(kernel=CKernelRBF(gamma=gamma))
 
     # Fit
     clf.verbose = 2

@@ -1,5 +1,5 @@
 from secml.array import CArray
-from secml.ml import CNormalizerMeanStd
+from secml.ml import CNormalizerMeanStd, CNormalizerDNN
 from secml.ml.peval.metrics import CMetricAccuracy
 
 from mnist.rbf_net import CClassifierRBFNetwork, plot_train_curves, CClassifierRejectRBFNet
@@ -7,13 +7,16 @@ from mnist.rbf_net import CClassifierRBFNetwork, plot_train_curves, CClassifierR
 from cifar10.cnn_cifar10 import cifar10
 from cifar10.fit_dnn import get_datasets
 
+import torch
+from pyclustering.cluster.xmeans import xmeans
+
 # PARAMETERS
 SIGMA = 0.0
-EPOCHS = 100
-BATCH_SIZE = 32
-FNAME = 'rbf_net_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS)
-# FNAME = 'rbf_net_last3'
-# FNAME = 'rbf_net_fixed_betas'
+WD = 1e-10
+EPOCHS = 250
+BATCH_SIZE = 256
+# FNAME = 'rbf_net_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS)
+FNAME = 'rbfnet_nr_like_wd_{:.0e}'.format(WD)
 
 
 N_TRAIN, N_TEST = 10000, 1000
@@ -40,13 +43,28 @@ if __name__ == '__main__':
     ts_sample = ts[ts_idxs[N_TEST:], :]
 
     # Create DNR
-    layers = ['features:23', 'features:26', 'features:29']
-    n_hiddens = [500, 300, 100]
+    # layers = ['features:23', 'features:26', 'features:29']
+    # n_hiddens = [500, 300, 100]
+    layers = ['features:29']
+
+    # # X-Means Clustering for prototypes init.
+    # feat_extr = CNormalizerDNN(dnn, out_layer=layers[-1])
+    # feats = feat_extr.transform(tr_sample.X)
+    # xm = xmeans(feats.tondarray())
+    # xm.process()
+    # n_hiddens = [len(xm.get_centers())]
+
+    # n_hiddens = [100]
+
+    # Init with NR support-vectors
+    sv_nr = CArray.load('sv_nr')
+    n_hiddens = [sv_nr.shape[0]]
     rbf_net = CClassifierRBFNetwork(dnn, layers,
                                     n_hiddens=n_hiddens,
                                     epochs=EPOCHS,
                                     batch_size=BATCH_SIZE,
                                     validation_data=vl_sample,
+                                    weight_decay=WD,
                                     sigma=SIGMA,              # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
                                     random_state=random_state)
 
@@ -54,11 +72,13 @@ if __name__ == '__main__':
     for l, h in zip(layers, n_hiddens):
         print("{} -> {}".format(l, h))
 
-    # Initialize prototypes with some training samples
-    h = max(n_hiddens)  # HACK: "Nel piu' ci sta il meno..."
-    idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
-    proto = tr_sample.X[idxs, :]
-    rbf_net.prototypes = proto
+    # =================== PROTOTYPE INIT. ===================
+
+    # # Initialize prototypes with some training samples
+    # h = max(n_hiddens)  # HACK: "Nel piu' ci sta il meno..."
+    # idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
+    # proto = tr_sample.X[idxs, :]
+    # rbf_net.prototypes = proto
 
     # # 1 prototype per class init.
     # proto = CArray.zeros((10, tr_sample.X.shape[1]))
@@ -66,18 +86,27 @@ if __name__ == '__main__':
     #     proto[c, :] = tr_sample.X[tr_sample.Y == c, :][0, :]
     # rbf_net.prototypes = proto
 
-    # Rule of thumb 'gamma' init
-    gammas = []
-    for i in range(len(n_hiddens)):
-        d = rbf_net._num_features[i].item()
-        gammas.append(CArray([1/d] * n_hiddens[i]))
-    rbf_net.betas = gammas
+    # rbf_net._clf.model.prototypes = [torch.Tensor(xm.get_centers()).to('cuda')]
+
+    feat_extr = CNormalizerDNN(dnn, out_layer=layers[-1])
+    feats = feat_extr.transform(sv_nr.tondarray())
+    rbf_net._clf.model.prototypes = [torch.Tensor(feats.tondarray()).to('cuda')]
+
+    # =================== GAMMA INIT. ===================
+
+    # # Rule of thumb 'gamma' init
+    # gammas = []
+    # for i in range(len(n_hiddens)):
+    #     d = rbf_net._num_features[i].item()
+    #     gammas.append(CArray([1/d] * n_hiddens[i]))
+    # rbf_net.betas = gammas
     # Avoid training for betas
-    rbf_net.train_betas = False
-    print("-> Gamma init. with rule of thumb and NOT trained <-")
+    # rbf_net.train_betas = False
+    # print("-> Gamma init. with rule of thumb and NOT trained <-")
 
     print("Hyperparameters:")
     print("- sigma: {}".format(SIGMA))
+    print("- weight_decay: {}".format(WD))
     print("- batch_size: {}".format(BATCH_SIZE))
     print("- epochs: {}".format(EPOCHS))
 
@@ -104,3 +133,4 @@ if __name__ == '__main__':
 
     # Dump to disk
     clf_rej.save(FNAME)
+    print("Output file: {}.gz".format(FNAME))

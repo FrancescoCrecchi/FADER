@@ -28,8 +28,10 @@ if __name__ == '__main__':
     # Create a blobs linear classifier
     n_classes = len(centers)
     model = nn.Linear(n_features, n_classes)
+
     # loss = nn.CrossEntropyLoss()
     loss = CategoricalHingeLoss()
+
     clf = CClassifierPyTorch(model,
                              loss=loss,
                              optimizer=optim.SGD(model.parameters(), lr=1e-2),

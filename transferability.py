@@ -26,7 +26,8 @@ def transfer_attack(clf, seval_data):
 
 DSET = 'cifar10'
 # CLFS = ['nr', 'dnr', 'tsne_rej', 'tnr']
-CLFS = ['rbf_net_sigma_0.000_250']
+# CLFS = ['nr', 'dnr', 'rbf_net_sigma_0.000_250']
+CLFS = ['deep_rbf_net_sigma_0.000_250']
 N_ITER = 3
 if __name__ == '__main__':
     random_state = 999

@@ -26,8 +26,8 @@ if __name__ == '__main__':
 
     # Create layer_classifier
     feat_extr = CNormalizerDNN(dnn, out_layer='features:29')
-    clf = CClassifierMulticlassOVA(CClassifierSVM, kernel=CKernelRBF(), preprocess=feat_extr)
-    clf.n_jobs = 10
+    clf = CClassifierSVM(kernel=CKernelRBF(), preprocess=feat_extr)
+    # clf.n_jobs = 10
 
     # Select 10K training data and 1K test data (sampling)
     tr_idxs = CArray.randsample(vl.X.shape[0], shape=N_TRAIN, random_state=random_state)
@@ -65,7 +65,9 @@ if __name__ == '__main__':
     })
 
     # We can now fit the clf_rej
+    clf.verbose = 2 # DEBUG
     clf.fit(tr_sample.X, tr_sample.Y)
+    clf.verbose = 0  # DEBUG END
 
     # Check test performance
     y_pred = clf.predict(ts.X, return_decision_function=False)

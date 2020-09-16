@@ -1,7 +1,7 @@
 from secml.array import CArray
 from secml.ml import CKernelRBF, CNormalizerMeanStd
 from secml.ml.classifiers.reject import CClassifierDNR
-from secml.ml.classifiers.sklearn.c_classifier_svm_m import CClassifierSVMM
+from secml.ml.classifiers.sklearn.c_classifier_svm import CClassifierSVM
 from secml.ml.peval.metrics import CMetricAccuracy
 
 from cifar10.cnn_cifar10 import cifar10
@@ -24,8 +24,8 @@ if __name__ == '__main__':
 
     # Create DNR
     layers = ['features:23', 'features:26', 'features:29']
-    layer_clf = CClassifierSVMM(kernel=CKernelRBF(gamma=1), C=1)
-    combiner = CClassifierSVMM(kernel=CKernelRBF(gamma=1), C=1)
+    layer_clf = CClassifierSVM(kernel=CKernelRBF(gamma=1), C=1)
+    combiner = CClassifierSVM(kernel=CKernelRBF(gamma=1), C=1)
     dnr = CClassifierDNR(combiner, layer_clf, dnn, layers, -1000)
 
     '''

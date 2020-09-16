@@ -3,8 +3,9 @@ from secml.ml.peval.metrics import CMetricAccuracy
 
 from cifar10.fit_dnn import get_datasets
 
+CLF = 'dnr'
 # CLF = 'hybrid_rbfnet_svm'
-CLF = 'dnr_rbf'
+# CLF = 'dnr_rbf'
 
 # Load data
 random_state = 999

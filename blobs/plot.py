@@ -11,7 +11,19 @@ sp2 = fig.subplot(2, 1, 2)
 
 
 # CLFS = ['rbfnet', 'svm']
-CLFS = ['rbfnet_998', 'rbfnet_999']
+# CLFS = ['rbfnet_998', 'rbfnet_999']
+
+# CLFS = ['rbfnet_degenere', 'rbfnet_attesa']
+# FNAME = 'sec_eval_confronto_rbf'
+
+# CLFS = ['svm', 'rbfnet_attesa']
+# FNAME = 'sec_eval_confronto_rbf_svm'
+
+# CLFS = ['rbfnet_attesa', 'rbfnet_cat_hinge', 'svm']
+# FNAME = 'sec_eval_confronto_rbf_cat_hinge'
+
+CLFS = ['svm', 'rbfnet_999']
+FNAME = 'sec_eval_secml_pip'
 
 print("Plotting")
 for clf_name in CLFS:
@@ -55,4 +67,4 @@ sp2.xlabel(sec_evals_data.param_name)
 sp2.ylabel("% Reject")
 sp2.apply_params_sec_eval()
 
-fig.savefig('sec_eval')
+fig.savefig(FNAME)

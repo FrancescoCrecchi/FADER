@@ -1,19 +1,22 @@
 import os
 
-from secml.ml.classifiers.reject import CClassifierDNR
+from secml.ml.classifiers.reject import CClassifierDNR, CClassifierRejectThreshold
 
 # PARAMETERS
 DSET = 'cifar10'
-CLF = 'dnr'
+CLF = 'nr'
 
 
 def count_svm_prototypes(svm):
     sv = abs(svm._alpha).sum(axis=0) > 0
     return sv.sum()
 
-
-if CLF == 'dnr':
-    clf = CClassifierDNR.load(os.path.join(DSET, CLF+'.gz'))
+fname = os.path.join(DSET, CLF+'.gz')
+if CLF == 'nr':
+    clf = CClassifierRejectThreshold.load(fname)
+    out = count_svm_prototypes(clf._clf)
+elif CLF == 'dnr':
+    clf = CClassifierDNR.load(fname)
     out = {}
     # Count for layer classifiers
     for l in clf._layers:

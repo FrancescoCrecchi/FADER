@@ -15,7 +15,7 @@ def security_evaluation(attack, dset, evals, double_init=True):
 
     # Run the security evaluation using the test set
     print("Running security evaluation...")
-    seval.run_sec_eval(dset, double_init=double_init)
+    seval.run_sec_eval(dset)
     print("Done!")
 
     return seval

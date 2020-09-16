@@ -1,5 +1,5 @@
 from secml.array import CArray
-from secml.ml import CNormalizerMeanStd
+from secml.ml import CNormalizerMeanStd, CNormalizerMinMax
 from secml.ml.classifiers.reject import CClassifierDNR
 from secml.ml.peval.metrics import CMetricAccuracy
 
@@ -12,7 +12,7 @@ from components.c_classifier_pytorch_rbf_network import CClassifierPyTorchRBFNet
 from components.rbf_network import RBFNetwork
 
 EPOCHS = 250
-BS = 32
+BS = 256
 
 
 def init_rbf_net(d, h, c, random_state, epochs, bs):
@@ -52,14 +52,17 @@ if __name__ == '__main__':
     # Create an RBF based DNR
     layers = ['features:23', 'features:26', 'features:29']
 
-    layer_clf = []
+    layer_clf = {}
     # Computing features sizes
     n_feats = [CArray(dnn.get_layer_shape(l)[1:]).prod() for l in layers]
     n_hiddens = [500, 300, 100]
     for i in range(len(layers)):
-        layer_clf.append(init_rbf_net(n_feats[i], n_hiddens[i], dnn.n_classes, random_state, EPOCHS, BS))
+        layer_clf[layers[i]] = init_rbf_net(n_feats[i], n_hiddens[i], dnn.n_classes, random_state, EPOCHS, BS)
 
     combiner = init_rbf_net(dnn.n_classes*len(layers), 100, dnn.n_classes, random_state, EPOCHS, BS)
+    # Normalizer Min-Max as preprocess
+    combiner.preprocess = CNormalizerMinMax()
+
     dnr = CClassifierDNR(combiner, layer_clf, dnn, layers, -1000)
 
     # Select 10K training data and 1K test data (sampling)

@@ -1,6 +1,9 @@
 import torch
 from torch import nn, optim
 
+from sklearn.cluster import KMeans
+from pyclustering.cluster.xmeans import xmeans
+
 from secml.figure import CFigure
 from secml.ml.classifiers.reject import CClassifierRejectThreshold
 from secml.array import CArray
@@ -10,8 +13,7 @@ from secml.data.splitter import CTrainTestSplit
 from secml.ml import CNormalizerMinMax
 
 from components.c_classifier_pytorch_rbf_network import CClassifierPyTorchRBFNetwork
-from components.rbf_network import RBFNetwork
-
+from components.rbf_network import RBFNetwork, CategoricalHingeLoss
 
 if __name__ == '__main__':
     seed = 999
@@ -33,24 +35,39 @@ if __name__ == '__main__':
     # tr.X = nmz.fit_transform(tr.X)
     # ts.X = nmz.transform(ts.X)
 
+    # X-Means Clustering for prototypes init.
+    xm = xmeans(tr.X.tondarray())
+    xm.process()
+    N_PROTO = len(xm.get_centers())
+
     # Create a blobs RBF-Net classifier
     n_classes = len(centers)
     # model = RBFNetwork(n_features, n_classes, n_classes)
-    model = RBFNetwork(n_features, 6, n_classes)
+    # N_PROTO_PER_CLASS = 1
+    # model = RBFNetwork(n_features, N_PROTO_PER_CLASS * n_classes, n_classes)
+    model = RBFNetwork(n_features, N_PROTO, n_classes)
     clf = CClassifierPyTorchRBFNetwork(model,
                                        loss=nn.CrossEntropyLoss(),
+                                       # loss=CategoricalHingeLoss(num_classes=n_classes),
                                        optimizer=optim.SGD(model.parameters(), lr=1e-2),
                                        input_shape=(n_features,),
-                                       epochs=250,
+                                       epochs=50,
                                        batch_size=32,
                                        track_prototypes=True,
                                        random_state=1234)
 
     # # Speedup training by prototype init.
-    # proto = CArray.zeros((n_classes, tr.X.shape[1]))
+    # proto = CArray.zeros((n_classes*N_PROTO_PER_CLASS, tr.X.shape[1]))
     # for c in range(n_classes):
-    #     proto[c, :] = tr.X[tr.Y == c, :][0, :]
-    # model.prototypes = [torch.Tensor(proto.tondarray()).float()]
+    #     proto[c*N_PROTO_PER_CLASS:(c+1)*N_PROTO_PER_CLASS, :] = tr.X[tr.Y == c, :][:N_PROTO_PER_CLASS, :]
+    # model.prototypes = [torch.Tensor(proto.tondarray()).float()]#.to('cuda')]
+
+    # Prototype init with K-Means
+    # KMeans
+    # km = KMeans(n_clusters=n_classes).fit(tr.X.tondarray())
+    # model.prototypes = [torch.Tensor(km.cluster_centers_)]
+
+    model.prototypes = [torch.Tensor(xm.get_centers())]
 
     # Fit
     clf.verbose = 2

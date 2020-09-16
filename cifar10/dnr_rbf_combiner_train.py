@@ -14,17 +14,16 @@ if __name__ == '__main__':
     _, vl, ts = get_datasets(random_state)
 
     # Load DNR
-    dnr = CClassifierDNR.load('dnr_rbf.gz.old')
+    dnr = CClassifierDNR.load('dnr_rbf.gz')
 
     # Load scores dset
     scores_dset = CDataset.load('dnr_scores_dset.gz')
 
-    # Normalize
-    nmz = CNormalizerMinMax()
-    scores_dset.X = nmz.fit_transform(scores_dset.X)
-
     # Replace combiner
     dnr._clf = init_rbf_net(30, 100, 10, random_state, 250, 32)
+    # Normalize input scores
+    dnr._clf.preprocess = CNormalizerMinMax()
+
     assert not dnr._clf.is_fitted(), "Something wrong here!"
 
     # Fit

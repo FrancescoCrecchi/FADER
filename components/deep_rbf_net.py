@@ -45,6 +45,7 @@ class DeepRBFNetwork(nn.Module):
         for i in range(self._n_layers):
             self._layer_clfs.append(RBFNetwork(self.n_features[i], self.n_hiddens[i], n_classes))
         self._stack = Stack()
+        # self._bn = nn.BatchNorm1d(self.n_classes * self._n_layers)
         # Set combiner on top
         ## 1) RBF NETS
         # self._combiner = nn.ModuleList()
@@ -73,6 +74,8 @@ class DeepRBFNetwork(nn.Module):
             start += self.n_features[i]
             f_x.append(out)
         f_x = self._stack(f_x, 2)        # fx.shape=(batch_size, n_classes, n_layers)
+        f_x = f_x.view(x.shape[0], -1)   # fx.shape=(batch_size, n_classes * n_layers)
+        # f_x = self._bn(f_x)
         # # Pass through combiner x class
         ## 1) RBF NETS
         # out = []
@@ -84,7 +87,7 @@ class DeepRBFNetwork(nn.Module):
         ## 3) MEAN LAYER
         # out = self._combiner(f_x, 2)    # (n_samples, n_classes)
         # 4) SINGLE RBF NET
-        out = self._combiner(f_x.view(x.shape[0], -1))
+        out = self._combiner(f_x)
         return out
 
     @property

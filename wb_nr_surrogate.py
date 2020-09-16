@@ -60,15 +60,17 @@ class CClassifierRejectSurrogate(CClassifierReject):
             orig_grad = grad.deepcopy()  # DEBUG
 
             # 1. Reduce gammas:
-            for c in range(self._clf_rej.n_classes - 1):
-                self._clf_rej._clf._binary_classifiers[c].kernel.gamma /= self._gamma_smooth
+            # for c in range(self._clf_rej.n_classes - 1):
+            #     self._clf_rej._clf._binary_classifiers[c].kernel.gamma /= self._gamma_smooth
+            self._clf_rej._clf.kernel.gamma /= self._gamma_smooth
 
             # 2. Update computed gradient:
             grad += self._clf_rej.gradient(self._cached_x, w)
 
             # 3. Restore gammas:
-            for c in range(self._clf_rej.n_classes - 1):
-                self._clf_rej._clf._binary_classifiers[c].kernel.gamma *= self._gamma_smooth
+            # for c in range(self._clf_rej.n_classes - 1):
+            #     self._clf_rej._clf._binary_classifiers[c].kernel.gamma *= self._gamma_smooth
+            self._clf_rej._clf.kernel.gamma *= self._gamma_smooth
 
             # DEBUG: DOUBLE CHECK
             restored_grad = self._clf_rej.gradient(self._cached_x, w)
