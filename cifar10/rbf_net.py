@@ -1,5 +1,6 @@
 from secml.array import CArray
 from secml.ml import CNormalizerMeanStd, CNormalizerDNN
+from secml.ml.classifiers.reject import CClassifierRejectThreshold
 from secml.ml.peval.metrics import CMetricAccuracy
 
 from mnist.rbf_net import CClassifierRBFNetwork, plot_train_curves, CClassifierRejectRBFNet
@@ -57,8 +58,10 @@ if __name__ == '__main__':
     # n_hiddens = [100]
 
     # Init with NR support-vectors
-    sv_nr = CArray.load('sv_nr')
+    nr = CClassifierRejectThreshold.load('nr.gz')
+    sv_nr = tr_sample.X[nr.clf._sv_idx, :]      # Previously: sv_nr = CArray.load('sv_nr')
     n_hiddens = [sv_nr.shape[0]]
+
     rbf_net = CClassifierRBFNetwork(dnn, layers,
                                     n_hiddens=n_hiddens,
                                     epochs=EPOCHS,

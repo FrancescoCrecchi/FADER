@@ -173,10 +173,11 @@ class CClassifierRejectRBFNet(CClassifierRejectThreshold):
 
 # PARAMETERS
 SIGMA = 0.0
+WD = 1e-8
 EPOCHS = 250
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 # FNAME = 'rbf_net_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS)
-FNAME = 'rbfnet_nr_like'
+FNAME = 'rbfnet_nr_like_wd_{:.0e}'.format(WD)
 
 
 def plot_train_curves(history, sigma):
@@ -220,21 +221,58 @@ if __name__ == '__main__':
     # layers = ['features:relu2', 'features:relu3', 'features:relu4']
     # n_hiddens = [250, 250, 50]
     layers = ['features:relu4']
-    n_hiddens = [50]
+
+    # n_hiddens = [50]
+
+    # Init with NR support-vectors
+    nr = CClassifierRejectThreshold.load('nr.gz')
+    sv_nr = tr_sample.X[nr.clf._sv_idx, :]
+    n_hiddens = [sv_nr.shape[0]]
+
     rbf_net = CClassifierRBFNetwork(dnn, layers,
                                     n_hiddens=n_hiddens,
                                     epochs=EPOCHS,
                                     batch_size=BATCH_SIZE,
                                     validation_data=vl_sample,
-                                    sigma=SIGMA,              # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
+                                    weight_decay=WD,
+                                    sigma=SIGMA,  # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
                                     random_state=random_state)
 
-    # Initialize prototypes with some training samples
-    h = max(n_hiddens)  # HACK: "Nel piu' ci sta il meno..."
-    idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
-    proto = tr_sample.X[idxs, :]
-    rbf_net.prototypes = proto
+    print("RBF network config:")
+    for l, h in zip(layers, n_hiddens):
+        print("{} -> {}".format(l, h))
 
+    # =================== PROTOTYPE INIT. ===================
+
+    # # Initialize prototypes with some training samples
+    # h = max(n_hiddens)  # HACK: "Nel piu' ci sta il meno..."
+    # idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
+    # proto = tr_sample.X[idxs, :]
+    # rbf_net.prototypes = proto
+
+    feat_extr = CNormalizerDNN(dnn, out_layer=layers[-1])
+    feats = feat_extr.transform(sv_nr.tondarray())
+    rbf_net._clf.model.prototypes = [torch.Tensor(feats.tondarray()).to('cuda')]
+
+    # =================== GAMMA INIT. ===================
+
+    # # Rule of thumb 'gamma' init
+    # gammas = []
+    # for i in range(len(n_hiddens)):
+    #     d = rbf_net._num_features[i].item()
+    #     gammas.append(CArray([1/d] * n_hiddens[i]))
+    # rbf_net.betas = gammas
+    # Avoid training for betas
+    # rbf_net.train_betas = False
+    # print("-> Gamma init. with rule of thumb and NOT trained <-")
+
+    print("Hyperparameters:")
+    print("- sigma: {}".format(SIGMA))
+    print("- weight_decay: {}".format(WD))
+    print("- batch_size: {}".format(BATCH_SIZE))
+    print("- epochs: {}".format(EPOCHS))
+
+    print("\n Training:")
     # Fit DNR
     rbf_net.verbose = 2  # DEBUG
     rbf_net.fit(tr_sample.X, tr_sample.Y)
@@ -257,3 +295,4 @@ if __name__ == '__main__':
 
     # Dump to disk
     clf_rej.save(FNAME)
+    print("Output file: {}.gz".format(FNAME))
