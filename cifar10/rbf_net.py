@@ -15,15 +15,16 @@ from pyclustering.cluster.xmeans import xmeans
 
 # PARAMETERS
 SIGMA = 0.0
-WD = 1e-4
+WD = 0.0
 EPOCHS = 250
 BATCH_SIZE = 256
 
-N_PROTO = 50
+N_PROTO = 100
+LOSS = 'xentr' # 'cat_hinge'
 
 # FNAME = 'rbf_net_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS)
 # FNAME = 'rbfnet_nr_like_wd_{:.0e}'.format(WD)
-FNAME = 'rbf_net_nr_sv_{}_wd_{:.0e}'.format(N_PROTO, WD)
+FNAME = 'rbf_net_nr_sv_{}_wd_{:.0e}_{}'.format(N_PROTO, WD, LOSS)
 
 
 N_TRAIN, N_TEST = 10000, 1000
@@ -74,6 +75,7 @@ if __name__ == '__main__':
                                     epochs=EPOCHS,
                                     batch_size=BATCH_SIZE,
                                     validation_data=vl_sample,
+                                    loss='xentr',
                                     weight_decay=WD,
                                     sigma=SIGMA,              # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
                                     random_state=random_state)
@@ -129,6 +131,7 @@ if __name__ == '__main__':
 
     print("Hyperparameters:")
     print("- sigma: {}".format(SIGMA))
+    print("- loss: {}".format(LOSS))
     print("- weight_decay: {}".format(WD))
     print("- batch_size: {}".format(BATCH_SIZE))
     print("- epochs: {}".format(EPOCHS))

@@ -18,6 +18,7 @@ from mnist.fit_dnn import get_datasets
 
 def rbf_network(dnn, layers, n_hiddens=100,
                 epochs=300, batch_size=32, validation_data=None,
+                loss='cat_hinge',
                 weight_decay=0.0, sigma=0.0,
                 track_prototypes=False, random_state=None):
     # Use CUDA
@@ -31,8 +32,12 @@ def rbf_network(dnn, layers, n_hiddens=100,
     # RBFNetwork
     model = RBFNetwork(n_feats, n_hiddens, dnn.n_classes)
     # Loss & Optimizer
-    # loss = nn.CrossEntropyLoss()
-    loss = CategoricalHingeLoss(dnn.n_classes)
+    if loss == 'xentr':
+        loss = nn.CrossEntropyLoss()
+    elif loss == 'cat_hinge':
+        loss = CategoricalHingeLoss(dnn.n_classes)
+    else:
+        raise ValueError("Not a valid loss!")
     optimizer = optim.Adam(model.parameters(), weight_decay=weight_decay)
     # HACK: TRACKING PROTOTYPES
     return CClassifierPyTorchRBFNetwork(model,
@@ -52,6 +57,7 @@ class CClassifierRBFNetwork(CClassifier):
     def __init__(self, dnn, layers, n_hiddens=100,
                  epochs=300, batch_size=32,
                  validation_data=None,
+                 loss='cat_hinge',
                  weight_decay=0.0,  # DEFAULT: No regularization!
                  sigma=0.0,         # DEFAULT: No regularization!
                  track_prototypes=False,
@@ -65,7 +71,8 @@ class CClassifierRBFNetwork(CClassifier):
         # RBF Network
         self._clf = rbf_network(dnn, layers, n_hiddens,
                                 epochs, batch_size, validation_data,
-                                weight_decay, sigma,
+                                loss, weight_decay,
+                                sigma,
                                 track_prototypes,
                                 random_state)
         super(CClassifierRBFNetwork, self).__init__()
