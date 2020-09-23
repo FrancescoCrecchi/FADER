@@ -18,26 +18,45 @@ EVAL_TYPE = 'wb'
 # CLFS = ['dnn', 'nr', 'dnr', 'rbf_net_sigma_0.000_250', 'deep_rbf_net_sigma_0.000_250']
 # CLFS = ['dnn', 'dnr', 'dnr_rbf'] # 'hybrid_rbfnet_svm', 'hybrid_svm_rbfnet',
 # CLFS = ['dnn', 'nr', 'dnr', 'rbf_net_sigma_0.000_250', 'deep_rbf_net_sigma_0.000_250', 'dnr_rbf']
-CLFS = ['dnn',
-        'nr',
-        'rbfnet_nr_like_wd_0e+00',
-        'rbfnet_nr_like_wd_1e-04',
-        'rbfnet_nr_like_wd_1e-05',
-        'rbfnet_nr_like_wd_1e-06',
-        'rbfnet_nr_like_wd_1e-08',
-        'rbfnet_nr_like_wd_1e-10']
+# CLFS = ['dnn',
+#         'nr',
+#         'rbfnet_nr_like_wd_0e+00',
+#         # 'rbfnet_nr_like_wd_1e-03',
+#         # 'rbfnet_nr_like_wd_1e-04',
+#         # 'rbfnet_nr_like_wd_1e-05',
+#         # 'rbfnet_nr_like_wd_1e-06',
+#         'rbfnet_nr_like_wd_1e-08',
+#         # 'rbfnet_nr_like_wd_1e-10'
+#         ]
+CLFS = [
+    'dnn',
+    # 'rbfnet_5127_tr_samples',
+    'nr',
+    # 'rbfnet_100_fixed_betas',
+    'rbf_net_nr_sv_100_wd_0e+00',
+    # 'rbf_net_nr_sv_100_wd_1e-08',
+    # 'rbf_net_nr_sv_10_wd_0e+00'
+    # 'rbf_net_nr_sv_50_wd_0e+00',
+    # 'rbf_net_nr_sv_50_wd_1e-04',
+    # 'rbf_net_nr_sv_50_wd_1e-08'
+    ]
 
 if DSET == 'mnist':
     EPS = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0]
+    LOG_SCALE = False
 elif DSET == 'cifar10':
     EPS = [0.0, 0.05, 0.1, 0.2, 0.4, 1.0, 2.0]
+    LOG_SCALE = True
 else:
     raise ValueError('Unknown dataset!')
 
-N_ITER = 3
+N_ITER = 3      # TODO: RESTORE THIS!
 
 # FNAME = 'all_'+EVAL_TYPE+'_seval'
-FNAME = 'svm_vs_rbf_nr_like'
+# FNAME = 'svm_vs_rbf_nr_like'
+
+DSET = os.path.join(DSET, 'ablation_study')
+FNAME = 'ablation_study'
 EXTENSION = 'png'
 # ------------------------------------------------------
 
@@ -165,7 +184,8 @@ if __name__ == '__main__':
         std_down[std_up > 1.0] = 1.0
         sp2.fill_between(EPS, std_up, std_down, interpolate=False, alpha=0.2)
 
-    sp1.xscale('symlog', linthreshx=0.1)
+    if LOG_SCALE:
+        sp1.xscale('symlog', linthreshx=0.1)
     sp1.xticks(EPS)
     sp1.xticklabels(EPS)
     sp1.ylim(-0.05, 1.05)
@@ -174,11 +194,12 @@ if __name__ == '__main__':
     sp1.legend()
     sp1.title("{0} evasion attack ({1})".format(
         'Black-box' if EVAL_TYPE == 'bb' else 'White-box',
-        DSET.upper()
+        DSET.split('/')[0].upper()  # HACK: Ablation study needed this!
     ))
     sp1.apply_params_sec_eval()
 
-    sp2.xscale('symlog', linthreshx=0.1)
+    if LOG_SCALE:
+        sp2.xscale('symlog', linthreshx=0.1)
     sp2.xticks(EPS)
     sp2.xticklabels(EPS)
     # sp2.ylim(-0.05, 1.05)

@@ -1,5 +1,8 @@
+import os
+
 import torch
 from torch import nn, optim
+
 from secml.array import CArray
 from secml.figure import CFigure
 from secml.ml import CClassifierPyTorch, CClassifier, CNormalizerDNN
@@ -128,7 +131,7 @@ class CClassifierRBFNetwork(CClassifier):
 
     @property
     def prototypes(self):
-        res = [CArray(proto.clone().detach().cpu().numpy()) for proto in self._clf.prototypes]
+        res = [CArray(proto.clone().detach().cpu().numpy()) for proto in self._clf.model.prototypes]
         return res
 
     @prototypes.setter
@@ -173,11 +176,15 @@ class CClassifierRejectRBFNet(CClassifierRejectThreshold):
 
 # PARAMETERS
 SIGMA = 0.0
-WD = 1e-8
+WD = 0.0
 EPOCHS = 250
 BATCH_SIZE = 256
+
+N_PROTO = 10
+
 # FNAME = 'rbf_net_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS)
-FNAME = 'rbfnet_nr_like_wd_{:.0e}'.format(WD)
+# FNAME = 'rbfnet_nr_like_wd_{:.0e}'.format(WD)
+FNAME = 'rbf_net_nr_sv_{}_wd_{:.0e}'.format(N_PROTO, WD)
 
 
 def plot_train_curves(history, sigma):
@@ -222,13 +229,12 @@ if __name__ == '__main__':
     # n_hiddens = [250, 250, 50]
     layers = ['features:relu4']
 
-    # n_hiddens = [50]
+    # # Init with NR support-vectors
+    # nr = CClassifierRejectThreshold.load('nr.gz')
+    # sv_nr = tr_sample.X[nr.clf._sv_idx, :]
+    # n_hiddens = [sv_nr.shape[0]]
 
-    # Init with NR support-vectors
-    nr = CClassifierRejectThreshold.load('nr.gz')
-    sv_nr = tr_sample.X[nr.clf._sv_idx, :]
-    n_hiddens = [sv_nr.shape[0]]
-
+    n_hiddens = [N_PROTO]
     rbf_net = CClassifierRBFNetwork(dnn, layers,
                                     n_hiddens=n_hiddens,
                                     epochs=EPOCHS,
@@ -250,21 +256,33 @@ if __name__ == '__main__':
     # proto = tr_sample.X[idxs, :]
     # rbf_net.prototypes = proto
 
-    feat_extr = CNormalizerDNN(dnn, out_layer=layers[-1])
-    feats = feat_extr.transform(sv_nr.tondarray())
-    rbf_net._clf.model.prototypes = [torch.Tensor(feats.tondarray()).to('cuda')]
+    # Init with NR support-vectors
+    print("-> Prototypes: SVM support vectors initialization <-")
+    nr = CClassifierRejectThreshold.load('nr.gz')
+    sv_nr = tr_sample[nr.clf._sv_idx, :]  # Previously: sv_nr = CArray.load('sv_nr')
+    # Reduce prototypes to the desired amount
+    proto = CArray.zeros((N_PROTO, sv_nr.X.shape[1]))
+    proto_per_class = N_PROTO // dnn.n_classes
+    for c in range(dnn.n_classes):
+        proto[c * proto_per_class:(c + 1) * proto_per_class, :] = sv_nr.X[sv_nr.Y == c, :][:proto_per_class, :]
+    rbf_net.prototypes = proto
+
+    # feat_extr = CNormalizerDNN(dnn, out_layer=layers[-1])
+    # feats = feat_extr.transform(sv_nr.tondarray())
+    # rbf_net._clf.model.prototypes = [torch.Tensor(feats.tondarray()).to('cuda')]
 
     # =================== GAMMA INIT. ===================
 
-    # # Rule of thumb 'gamma' init
-    # gammas = []
-    # for i in range(len(n_hiddens)):
-    #     d = rbf_net._num_features[i].item()
-    #     gammas.append(CArray([1/d] * n_hiddens[i]))
-    # rbf_net.betas = gammas
-    # Avoid training for betas
+    # Rule of thumb 'gamma' init
+    print("-> Gamma init. with rule of thumb <-")
+    gammas = []
+    for i in range(len(n_hiddens)):
+        d = rbf_net._num_features[i].item()
+        gammas.append(CArray([1 / d] * n_hiddens[i]))
+    rbf_net.betas = gammas
+    # # Avoid training for betas
     # rbf_net.train_betas = False
-    # print("-> Gamma init. with rule of thumb and NOT trained <-")
+    # print("-> Gammas NOT trained <-")
 
     print("Hyperparameters:")
     print("- sigma: {}".format(SIGMA))
@@ -294,5 +312,6 @@ if __name__ == '__main__':
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
 
     # Dump to disk
-    clf_rej.save(FNAME)
+    FNAME = os.path.join('ablation_study', FNAME)
     print("Output file: {}.gz".format(FNAME))
+    clf_rej.save(FNAME)

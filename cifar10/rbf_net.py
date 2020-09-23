@@ -1,3 +1,5 @@
+import os
+
 from secml.array import CArray
 from secml.ml import CNormalizerMeanStd, CNormalizerDNN
 from secml.ml.classifiers.reject import CClassifierRejectThreshold
@@ -13,11 +15,15 @@ from pyclustering.cluster.xmeans import xmeans
 
 # PARAMETERS
 SIGMA = 0.0
-WD = 1e-10
+WD = 1e-4
 EPOCHS = 250
 BATCH_SIZE = 256
+
+N_PROTO = 50
+
 # FNAME = 'rbf_net_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS)
-FNAME = 'rbfnet_nr_like_wd_{:.0e}'.format(WD)
+# FNAME = 'rbfnet_nr_like_wd_{:.0e}'.format(WD)
+FNAME = 'rbf_net_nr_sv_{}_wd_{:.0e}'.format(N_PROTO, WD)
 
 
 N_TRAIN, N_TEST = 10000, 1000
@@ -49,21 +55,22 @@ if __name__ == '__main__':
     layers = ['features:29']
 
     # # X-Means Clustering for prototypes init.
+    # print("-> Prototypes: X-means initialization <-")
     # feat_extr = CNormalizerDNN(dnn, out_layer=layers[-1])
     # feats = feat_extr.transform(tr_sample.X)
     # xm = xmeans(feats.tondarray())
     # xm.process()
     # n_hiddens = [len(xm.get_centers())]
 
-    # n_hiddens = [100]
+    # # Init with NR support-vectors
+    # print("-> Prototypes: SVM support vectors initialization <-")
+    # nr = CClassifierRejectThreshold.load('nr.gz')
+    # sv_nr = tr_sample.X[nr.clf._sv_idx, :]      # Previously: sv_nr = CArray.load('sv_nr')
+    # n_hiddens = [sv_nr.shape[0]]
 
-    # Init with NR support-vectors
-    nr = CClassifierRejectThreshold.load('nr.gz')
-    sv_nr = tr_sample.X[nr.clf._sv_idx, :]      # Previously: sv_nr = CArray.load('sv_nr')
-    n_hiddens = [sv_nr.shape[0]]
-
+    n_hiddens = [N_PROTO]
     rbf_net = CClassifierRBFNetwork(dnn, layers,
-                                    n_hiddens=n_hiddens,
+                                    n_hiddens=N_PROTO,
                                     epochs=EPOCHS,
                                     batch_size=BATCH_SIZE,
                                     validation_data=vl_sample,
@@ -78,6 +85,7 @@ if __name__ == '__main__':
     # =================== PROTOTYPE INIT. ===================
 
     # # Initialize prototypes with some training samples
+    # print("-> Prototypes: Training samples initialization <-")
     # h = max(n_hiddens)  # HACK: "Nel piu' ci sta il meno..."
     # idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
     # proto = tr_sample.X[idxs, :]
@@ -91,21 +99,33 @@ if __name__ == '__main__':
 
     # rbf_net._clf.model.prototypes = [torch.Tensor(xm.get_centers()).to('cuda')]
 
-    feat_extr = CNormalizerDNN(dnn, out_layer=layers[-1])
-    feats = feat_extr.transform(sv_nr.tondarray())
-    rbf_net._clf.model.prototypes = [torch.Tensor(feats.tondarray()).to('cuda')]
+    # Init with NR support-vectors
+    print("-> Prototypes: SVM support vectors initialization <-")
+    nr = CClassifierRejectThreshold.load('nr.gz')
+    sv_nr = tr_sample[nr.clf._sv_idx, :]  # Previously: sv_nr = CArray.load('sv_nr')
+    # Reduce prototypes to the desired amount
+    proto = CArray.zeros((N_PROTO, sv_nr.X.shape[1]))
+    proto_per_class = N_PROTO // dnn.n_classes
+    for c in range(dnn.n_classes):
+        proto[c * proto_per_class:(c + 1) * proto_per_class, :] = sv_nr.X[sv_nr.Y == c, :][:proto_per_class, :]
+    rbf_net.prototypes = proto
+
+    # feat_extr = CNormalizerDNN(dnn, out_layer=layers[-1])
+    # feats = feat_extr.transform(sv_nr.tondarray())
+    # rbf_net._clf.model.prototypes = [torch.Tensor(feats.tondarray()).to('cuda')]
 
     # =================== GAMMA INIT. ===================
 
-    # # Rule of thumb 'gamma' init
-    # gammas = []
-    # for i in range(len(n_hiddens)):
-    #     d = rbf_net._num_features[i].item()
-    #     gammas.append(CArray([1/d] * n_hiddens[i]))
-    # rbf_net.betas = gammas
-    # Avoid training for betas
+    # Rule of thumb 'gamma' init
+    print("-> Gamma init. with rule of thumb <-")
+    gammas = []
+    for i in range(len(n_hiddens)):
+        d = rbf_net._num_features[i].item()
+        gammas.append(CArray([1/d] * n_hiddens[i]))
+    rbf_net.betas = gammas
+    # # Avoid training for betas
     # rbf_net.train_betas = False
-    # print("-> Gamma init. with rule of thumb and NOT trained <-")
+    # print("-> Gammas NOT trained <-")
 
     print("Hyperparameters:")
     print("- sigma: {}".format(SIGMA))
@@ -135,5 +155,6 @@ if __name__ == '__main__':
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
 
     # Dump to disk
-    clf_rej.save(FNAME)
+    FNAME = os.path.join('ablation_study', FNAME)
     print("Output file: {}.gz".format(FNAME))
+    clf_rej.save(FNAME)

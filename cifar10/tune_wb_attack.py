@@ -1,3 +1,5 @@
+import os
+
 from secml.adv.attacks import CAttackEvasionPGDExp
 from secml.array import CArray
 from secml.figure import CFigure
@@ -14,7 +16,11 @@ from wb_dnr_surrogate import CClassifierDNRSurrogate
 from wb_nr_surrogate import CClassifierRejectSurrogate
 
 # TODO: Set this!
-CLF = 'rbfnet_nr_like_wd_1e-10'
+# CLF = 'nr'
+# CLF = os.path.join('ablation_study', 'rbfnet_100_fixed_betas')
+# CLF = os.path.join('ablation_study', 'rbfnet_5127_tr_samples')
+CLF = os.path.join('ablation_study', 'rbf_net_nr_sv_100_wd_0e+00')
+
 USE_SMOOTHING = False
 N_SAMPLES = 100
 N_PLOTS = 10
@@ -62,7 +68,7 @@ tr_sample = vl[tr_idxs, :]
 
 # Defining attack
 noise_type = 'l2'   # Type of perturbation 'l1' or 'l2'
-dmax = 2.0          # Maximum perturbation
+dmax = 1.0          # Maximum perturbation
 lb, ub = 0., 1.     # Bounds of the attack space. Can be set to `None` for unbounded
 y_target = None     # None if `error-generic` or a class label for `error-specific`
 

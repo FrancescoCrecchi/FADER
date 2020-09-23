@@ -1,3 +1,5 @@
+import os
+
 from secml.adv.attacks import CAttackEvasionPGDExp
 from secml.array import CArray
 from secml.figure import CFigure
@@ -14,10 +16,12 @@ from wb_dnr_surrogate import CClassifierDNRSurrogate
 from wb_nr_surrogate import CClassifierRejectSurrogate
 
 # TODO: Set this!
-CLF = 'dnn'
+CLF = 'nr'
+# CLF = os.path.join('ablation_study', 'rbf_net_nr_sv_10_wd_0e+00')
+
 USE_SMOOTHING = False
-N_SAMPLES = 30
-N_PLOTS = 4
+N_SAMPLES = 100
+N_PLOTS = 10
 
 random_state = 999
 _, vl, ts = get_datasets(random_state)
@@ -48,7 +52,7 @@ elif "rbf_net" in CLF or "rbfnet" in CLF:
 #     clf.load_model(CLF + '.pkl')
 else:
     raise ValueError("Unknown classifier!")
-# clf.verbose = 2     # DEBUG
+clf.verbose = 1     # INFO
 
 # Check test performance
 y_pred = clf.predict(ts.X, return_decision_function=False)
@@ -62,7 +66,7 @@ tr_sample = vl[tr_idxs, :]
 
 # Defining attack
 noise_type = 'l2'  # Type of perturbation 'l1' or 'l2'
-dmax = 3.0  # Maximum perturbation
+dmax = 5.0  # Maximum perturbation
 lb, ub = 0., 1.  # Bounds of the attack space. Can be set to `None` for unbounded
 y_target = None  # None if `error-generic` or a class label for `error-specific`
 

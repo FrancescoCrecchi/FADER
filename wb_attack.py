@@ -71,7 +71,7 @@ if __name__ == '__main__':
 
     formatter = argparse.ArgumentDefaultsHelpFormatter
     parser = argparse.ArgumentParser(formatter_class=formatter)
-    parser.add_argument("dataset", help="Dataset", choices=['mnist', 'cifar10'], type=str)
+    parser.add_argument("dataset", help="Dataset")#, type=str, choices=['mnist', 'cifar10'])    # TODO: RESTORE THIS!
     parser.add_argument("clf", help="Model type", type=str)
     parser.add_argument("-n", "--n_samples", help="Number of attack samples to use for security evaluation", type=int, default=100)
     parser.add_argument("-i", "--iter", help="Number of independent iterations to performs", type=int, default=3)
@@ -80,7 +80,7 @@ if __name__ == '__main__':
 
     random_state = 999
 
-    if args.dataset == 'mnist':
+    if 'mnist' in args.dataset:
         from mnist.fit_dnn import get_datasets
         EPS = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0]
     else:
