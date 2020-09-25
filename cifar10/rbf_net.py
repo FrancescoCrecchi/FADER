@@ -15,12 +15,12 @@ from pyclustering.cluster.xmeans import xmeans
 
 # PARAMETERS
 SIGMA = 0.0
-WD = 0.0
+WD = 1e-8
 EPOCHS = 250
 BATCH_SIZE = 256
 
 N_PROTO = 100
-LOSS = 'xentr' # 'cat_hinge'
+LOSS = 'cat_hinge' # 'xentr'
 
 # FNAME = 'rbf_net_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS)
 # FNAME = 'rbfnet_nr_like_wd_{:.0e}'.format(WD)
@@ -75,7 +75,7 @@ if __name__ == '__main__':
                                     epochs=EPOCHS,
                                     batch_size=BATCH_SIZE,
                                     validation_data=vl_sample,
-                                    loss='xentr',
+                                    loss=LOSS,
                                     weight_decay=WD,
                                     sigma=SIGMA,              # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
                                     random_state=random_state)
@@ -86,12 +86,16 @@ if __name__ == '__main__':
 
     # =================== PROTOTYPE INIT. ===================
 
-    # # Initialize prototypes with some training samples
-    # print("-> Prototypes: Training samples initialization <-")
-    # h = max(n_hiddens)  # HACK: "Nel piu' ci sta il meno..."
+    # Initialize prototypes with some training samples
+    print("-> Prototypes: Training samples initialization <-")
+    h = max(n_hiddens)  # HACK: "Nel piu' ci sta il meno..."
+    proto = CArray.zeros((h, tr_sample.X.shape[1]))
+    n_proto_per_class = h // dnn.n_classes
+    for c in range(dnn.n_classes):
+        proto[c*n_proto_per_class: (c+1)*n_proto_per_class, :] = tr_sample.X[tr_sample.Y == c, :][:n_proto_per_class, :]
     # idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
     # proto = tr_sample.X[idxs, :]
-    # rbf_net.prototypes = proto
+    rbf_net.prototypes = proto
 
     # # 1 prototype per class init.
     # proto = CArray.zeros((10, tr_sample.X.shape[1]))
@@ -101,16 +105,16 @@ if __name__ == '__main__':
 
     # rbf_net._clf.model.prototypes = [torch.Tensor(xm.get_centers()).to('cuda')]
 
-    # Init with NR support-vectors
-    print("-> Prototypes: SVM support vectors initialization <-")
-    nr = CClassifierRejectThreshold.load('nr.gz')
-    sv_nr = tr_sample[nr.clf._sv_idx, :]  # Previously: sv_nr = CArray.load('sv_nr')
-    # Reduce prototypes to the desired amount
-    proto = CArray.zeros((N_PROTO, sv_nr.X.shape[1]))
-    proto_per_class = N_PROTO // dnn.n_classes
-    for c in range(dnn.n_classes):
-        proto[c * proto_per_class:(c + 1) * proto_per_class, :] = sv_nr.X[sv_nr.Y == c, :][:proto_per_class, :]
-    rbf_net.prototypes = proto
+    # # Init with NR support-vectors
+    # print("-> Prototypes: SVM support vectors initialization <-")
+    # nr = CClassifierRejectThreshold.load('nr.gz')
+    # sv_nr = tr_sample[nr.clf._sv_idx, :]  # Previously: sv_nr = CArray.load('sv_nr')
+    # # Reduce prototypes to the desired amount
+    # proto = CArray.zeros((N_PROTO, sv_nr.X.shape[1]))
+    # proto_per_class = N_PROTO // dnn.n_classes
+    # for c in range(dnn.n_classes):
+    #     proto[c * proto_per_class:(c + 1) * proto_per_class, :] = sv_nr.X[sv_nr.Y == c, :][:proto_per_class, :]
+    # rbf_net.prototypes = proto
 
     # feat_extr = CNormalizerDNN(dnn, out_layer=layers[-1])
     # feats = feat_extr.transform(sv_nr.tondarray())
@@ -158,6 +162,6 @@ if __name__ == '__main__':
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
 
     # Dump to disk
-    FNAME = os.path.join('ablation_study', FNAME)
+    # FNAME = os.path.join('ablation_study', FNAME)
     print("Output file: {}.gz".format(FNAME))
     clf_rej.save(FNAME)

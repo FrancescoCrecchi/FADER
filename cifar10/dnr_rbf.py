@@ -9,13 +9,15 @@ from torch import nn, optim
 from cifar10.cnn_cifar10 import cifar10
 from cifar10.fit_dnn import get_datasets
 from components.c_classifier_pytorch_rbf_network import CClassifierPyTorchRBFNetwork
-from components.rbf_network import RBFNetwork
+from components.rbf_network import RBFNetwork, CategoricalHingeLoss
 
 EPOCHS = 250
 BS = 256
+LOSS = 'xentr' # 'cat_hinge'
+WD = 0.0
 
 
-def init_rbf_net(d, h, c, random_state, epochs, bs):
+def init_rbf_net(d, h, c, random_state, epochs, bs, loss, weight_decay):
     # Init DNN
     model = RBFNetwork(d, h, c)
 
@@ -23,8 +25,15 @@ def init_rbf_net(d, h, c, random_state, epochs, bs):
     model.betas = [torch.ones(h) * (1 / d)]
     model.train_betas = False
 
-    loss = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters())  # --> TODO: Expose optimizer params <--
+    # Loss & Optimizer
+    if loss == 'xentr':
+        loss = nn.CrossEntropyLoss()
+    elif loss == 'cat_hinge':
+        loss = CategoricalHingeLoss(c)
+    else:
+        raise ValueError("Not a valid loss!")
+    optimizer = optim.Adam(model.parameters(), weight_decay=weight_decay)
+
     return CClassifierPyTorchRBFNetwork(model,
                                         loss=loss,
                                         optimizer=optimizer,
@@ -57,9 +66,9 @@ if __name__ == '__main__':
     n_feats = [CArray(dnn.get_layer_shape(l)[1:]).prod() for l in layers]
     n_hiddens = [500, 300, 100]
     for i in range(len(layers)):
-        layer_clf[layers[i]] = init_rbf_net(n_feats[i], n_hiddens[i], dnn.n_classes, random_state, EPOCHS, BS)
+        layer_clf[layers[i]] = init_rbf_net(n_feats[i], n_hiddens[i], dnn.n_classes, random_state, EPOCHS, BS, LOSS, WD)
 
-    combiner = init_rbf_net(dnn.n_classes*len(layers), 100, dnn.n_classes, random_state, EPOCHS, BS)
+    combiner = init_rbf_net(dnn.n_classes*len(layers), 100, dnn.n_classes, random_state, EPOCHS, BS, LOSS, WD)
     # Normalizer Min-Max as preprocess
     combiner.preprocess = CNormalizerMinMax()
 
