@@ -15,16 +15,19 @@ from pyclustering.cluster.xmeans import xmeans
 
 # PARAMETERS
 SIGMA = 0.0
-WD = 1e-8
+WD = 0.0
 EPOCHS = 250
 BATCH_SIZE = 256
 
 N_PROTO = 100
 LOSS = 'cat_hinge' # 'xentr'
 
+LAYER='features:29'
+
 # FNAME = 'rbf_net_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS)
 # FNAME = 'rbfnet_nr_like_wd_{:.0e}'.format(WD)
-FNAME = 'rbf_net_nr_sv_{}_wd_{:.0e}_{}'.format(N_PROTO, WD, LOSS)
+# FNAME = 'rbf_net_nr_sv_{}_wd_{:.0e}_{}'.format(N_PROTO, WD, LOSS)
+FNAME = 'rbf_net_{}_{}_wd_{:.0e}_{}'.format(LAYER, N_PROTO, WD, LOSS)
 
 
 N_TRAIN, N_TEST = 10000, 1000
@@ -53,7 +56,7 @@ if __name__ == '__main__':
     # Create DNR
     # layers = ['features:23', 'features:26', 'features:29']
     # n_hiddens = [500, 300, 100]
-    layers = ['features:29']
+    layers = [LAYER]
 
     # # X-Means Clustering for prototypes init.
     # print("-> Prototypes: X-means initialization <-")
@@ -129,9 +132,9 @@ if __name__ == '__main__':
         d = rbf_net._num_features[i].item()
         gammas.append(CArray([1/d] * n_hiddens[i]))
     rbf_net.betas = gammas
-    # # Avoid training for betas
-    # rbf_net.train_betas = False
-    # print("-> Gammas NOT trained <-")
+    # Avoid training for betas
+    rbf_net.train_betas = False
+    print("-> Gammas NOT trained <-")
 
     print("Hyperparameters:")
     print("- sigma: {}".format(SIGMA))

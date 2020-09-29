@@ -16,7 +16,8 @@ from wb_dnr_surrogate import CClassifierDNRSurrogate
 from wb_nr_surrogate import CClassifierRejectSurrogate
 
 # TODO: Set this!
-CLF = 'nr'
+CLF = 'dnr'
+# CLF = 'rbfnet_nr_like_10_wd_0e+00'
 # CLF = os.path.join('ablation_study', 'rbf_net_nr_sv_10_wd_0e+00')
 
 USE_SMOOTHING = False
@@ -36,7 +37,7 @@ elif CLF == 'nr' or CLF == 'tsne_rej':
     clf = CClassifierRejectThreshold.load(CLF+'.gz')
     if USE_SMOOTHING:
         clf = CClassifierRejectSurrogate(clf, gamma_smoothing=1000)
-elif CLF == 'dnr' or CLF == 'tnr':
+elif 'dnr' in CLF or CLF == 'tnr':
     # DNR
     clf = CClassifierDNR.load(CLF+'.gz')
     if USE_SMOOTHING:

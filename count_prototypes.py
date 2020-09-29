@@ -4,8 +4,12 @@ from secml.ml.classifiers.reject import CClassifierDNR, CClassifierRejectThresho
 
 # PARAMETERS
 DSET = 'cifar10'
-CLF = 'nr'
+CLF = 'dnr'
 
+print("========================")
+print("Dataset: " + DSET)
+print("Classifier: " + CLF)
+print("------------------------")
 
 def count_svm_prototypes(svm):
     sv = abs(svm._alpha).sum(axis=0) > 0
@@ -26,4 +30,6 @@ elif CLF == 'dnr':
 else:
     raise NotImplementedError()
 
-print(out)
+for k,v in out.items():
+    print("- {}: {}".format(k, v))
+print("========================")

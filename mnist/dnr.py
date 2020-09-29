@@ -54,6 +54,7 @@ if __name__ == '__main__':
     ts_sample = ts[ts_idxs, :]
 
     # Fit DNR
+    dnr.n_jobs = 3
     dnr.verbose = 2     # DEBUG
     dnr.fit(tr_sample.X, tr_sample.Y)
 

@@ -181,19 +181,6 @@ class CClassifierRejectRBFNet(CClassifierRejectThreshold):
         return True
 
 
-# PARAMETERS
-SIGMA = 0.0
-WD = 0.0
-EPOCHS = 250
-BATCH_SIZE = 256
-
-N_PROTO = 10
-
-# FNAME = 'rbf_net_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS)
-# FNAME = 'rbfnet_nr_like_wd_{:.0e}'.format(WD)
-FNAME = 'rbf_net_nr_sv_{}_wd_{:.0e}'.format(N_PROTO, WD)
-
-
 def plot_train_curves(history, sigma):
     fig = CFigure()
     fig.sp.plot(history['tr_loss'], label='TR', marker="o")
@@ -206,6 +193,21 @@ def plot_train_curves(history, sigma):
     fig.sp.legend()
     fig.sp.grid()
     return fig
+
+# PARAMETERS
+SIGMA = 0.0
+WD = 0.0
+EPOCHS = 250
+BATCH_SIZE = 256
+
+N_PROTO = 10
+LOSS = 'cat_hinge' # 'xentr'
+LAYER = 'features:relu4'
+
+# FNAME = 'rbf_net_sigma_{:.3f}_{}'.format(SIGMA, EPOCHS)
+# FNAME = 'rbfnet_nr_like_wd_{:.0e}'.format(WD)
+# FNAME = 'rbf_net_nr_sv_{}_wd_{:.0e}_{}'.format(N_PROTO, WD, LOSS)
+FNAME = 'rbf_net_{}_{}_wd_{:.0e}_{}'.format(LAYER, N_PROTO, WD, LOSS)
 
 
 N_TRAIN, N_TEST = 10000, 1000
@@ -234,7 +236,7 @@ if __name__ == '__main__':
     # Create DNR
     # layers = ['features:relu2', 'features:relu3', 'features:relu4']
     # n_hiddens = [250, 250, 50]
-    layers = ['features:relu4']
+    layers = [LAYER]
 
     # # Init with NR support-vectors
     # nr = CClassifierRejectThreshold.load('nr.gz')
@@ -243,10 +245,11 @@ if __name__ == '__main__':
 
     n_hiddens = [N_PROTO]
     rbf_net = CClassifierRBFNetwork(dnn, layers,
-                                    n_hiddens=n_hiddens,
+                                    n_hiddens=N_PROTO,
                                     epochs=EPOCHS,
                                     batch_size=BATCH_SIZE,
                                     validation_data=vl_sample,
+                                    loss=LOSS,
                                     weight_decay=WD,
                                     sigma=SIGMA,  # TODO: HOW TO SET THIS?! (REGULARIZATION KNOB)
                                     random_state=random_state)
@@ -257,26 +260,40 @@ if __name__ == '__main__':
 
     # =================== PROTOTYPE INIT. ===================
 
-    # # Initialize prototypes with some training samples
-    # h = max(n_hiddens)  # HACK: "Nel piu' ci sta il meno..."
-    # idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
-    # proto = tr_sample.X[idxs, :]
-    # rbf_net.prototypes = proto
+        # Initialize prototypes with some training samples
+        print("-> Prototypes: Training samples initialization <-")
+        h = max(n_hiddens)  # HACK: "Nel piu' ci sta il meno..."
+        proto = CArray.zeros((h, tr_sample.X.shape[1]))
+        n_proto_per_class = h // dnn.n_classes
+        for c in range(dnn.n_classes):
+            proto[c * n_proto_per_class: (c + 1) * n_proto_per_class, :] = tr_sample.X[tr_sample.Y == c, :][
+                                                                           :n_proto_per_class, :]
+        # idxs = CArray.randsample(tr_sample.X.shape[0], shape=(h,), replace=False, random_state=random_state)
+        # proto = tr_sample.X[idxs, :]
+        rbf_net.prototypes = proto
 
-    # Init with NR support-vectors
-    print("-> Prototypes: SVM support vectors initialization <-")
-    nr = CClassifierRejectThreshold.load('nr.gz')
-    sv_nr = tr_sample[nr.clf._sv_idx, :]  # Previously: sv_nr = CArray.load('sv_nr')
-    # Reduce prototypes to the desired amount
-    proto = CArray.zeros((N_PROTO, sv_nr.X.shape[1]))
-    proto_per_class = N_PROTO // dnn.n_classes
-    for c in range(dnn.n_classes):
-        proto[c * proto_per_class:(c + 1) * proto_per_class, :] = sv_nr.X[sv_nr.Y == c, :][:proto_per_class, :]
-    rbf_net.prototypes = proto
+        # # 1 prototype per class init.
+        # proto = CArray.zeros((10, tr_sample.X.shape[1]))
+        # for c in range(10):
+        #     proto[c, :] = tr_sample.X[tr_sample.Y == c, :][0, :]
+        # rbf_net.prototypes = proto
 
-    # feat_extr = CNormalizerDNN(dnn, out_layer=layers[-1])
-    # feats = feat_extr.transform(sv_nr.tondarray())
-    # rbf_net._clf.model.prototypes = [torch.Tensor(feats.tondarray()).to('cuda')]
+        # rbf_net._clf.model.prototypes = [torch.Tensor(xm.get_centers()).to('cuda')]
+
+        # # Init with NR support-vectors
+        # print("-> Prototypes: SVM support vectors initialization <-")
+        # nr = CClassifierRejectThreshold.load('nr.gz')
+        # sv_nr = tr_sample[nr.clf._sv_idx, :]  # Previously: sv_nr = CArray.load('sv_nr')
+        # # Reduce prototypes to the desired amount
+        # proto = CArray.zeros((N_PROTO, sv_nr.X.shape[1]))
+        # proto_per_class = N_PROTO // dnn.n_classes
+        # for c in range(dnn.n_classes):
+        #     proto[c * proto_per_class:(c + 1) * proto_per_class, :] = sv_nr.X[sv_nr.Y == c, :][:proto_per_class, :]
+        # rbf_net.prototypes = proto
+
+        # feat_extr = CNormalizerDNN(dnn, out_layer=layers[-1])
+        # feats = feat_extr.transform(sv_nr.tondarray())
+        # rbf_net._clf.model.prototypes = [torch.Tensor(feats.tondarray()).to('cuda')]
 
     # =================== GAMMA INIT. ===================
 
@@ -287,9 +304,9 @@ if __name__ == '__main__':
         d = rbf_net._num_features[i].item()
         gammas.append(CArray([1 / d] * n_hiddens[i]))
     rbf_net.betas = gammas
-    # # Avoid training for betas
-    # rbf_net.train_betas = False
-    # print("-> Gammas NOT trained <-")
+    # Avoid training for betas
+    rbf_net.train_betas = False
+    print("-> Gammas NOT trained <-")
 
     print("Hyperparameters:")
     print("- sigma: {}".format(SIGMA))
@@ -319,6 +336,6 @@ if __name__ == '__main__':
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
 
     # Dump to disk
-    FNAME = os.path.join('ablation_study', FNAME)
+    # FNAME = os.path.join('ablation_study', FNAME)
     print("Output file: {}.gz".format(FNAME))
     clf_rej.save(FNAME)

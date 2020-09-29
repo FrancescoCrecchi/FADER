@@ -6,7 +6,7 @@ from secml.figure import CFigure
 from secml.ml.peval.metrics import CMetricAccuracyReject, CMetricAccuracy
 
 # PARAMETERS
-DSET = 'cifar10'
+DSET = 'mnist'
 EVAL_TYPE = 'wb'
 
 # ------------------------------------------------------
@@ -32,13 +32,20 @@ CLFS = [
     'dnn',
     # 'rbfnet_5127_tr_samples',
     'nr',
+    # 'dnr',
     # 'rbfnet_100_fixed_betas',
-    'rbf_net_nr_sv_100_wd_0e+00',
+    # 'rbf_net_nr_sv_100_wd_0e+00',
     # 'rbf_net_nr_sv_100_wd_1e-08',
     # 'rbf_net_nr_sv_10_wd_0e+00'
     # 'rbf_net_nr_sv_50_wd_0e+00',
     # 'rbf_net_nr_sv_50_wd_1e-04',
-    # 'rbf_net_nr_sv_50_wd_1e-08'
+    # 'rbf_net_nr_sv_50_wd_1e-08',
+    # 'rbf_net_nr_sv_100_wd_0e+00',
+    # 'rbf_net_nr_sv_100_wd_0e+00_cat_hinge',
+    # 'rbf_net_nr_sv_100_wd_0e+00_cat_hinge_tr_init',
+    # 'dnr_rbf',
+    'dnr_rbf_tr_init',
+    'rbfnet_nr_like_10_wd_0e+00'
     ]
 
 if DSET == 'mnist':
@@ -54,9 +61,10 @@ N_ITER = 3      # TODO: RESTORE THIS!
 
 # FNAME = 'all_'+EVAL_TYPE+'_seval'
 # FNAME = 'svm_vs_rbf_nr_like'
+# FNAME = 'all_wb_seval'
+FNAME = 'all_rbfnet_tr_init'
 
-DSET = os.path.join(DSET, 'ablation_study')
-FNAME = 'ablation_study'
+# DSET = os.path.join(DSET, 'ablation_study')
 EXTENSION = 'png'
 # ------------------------------------------------------
 
@@ -146,8 +154,8 @@ if __name__ == '__main__':
             label = 'D$t$-NR'
         # DEBUG: REMOVE THIS!
         # DEBUG: ========================
-        elif clf == 'nr':
-            label = 'svm-rbf'
+        # elif clf == 'nr':
+        #     label = 'svm-rbf'
         elif clf == 'rbfnet_nr_like':
             label = 'rbfnet'
         elif clf == 'rbfnet_nr_like_wd_0e+00':
