@@ -6,8 +6,8 @@ from secml.ml.peval.metrics import CMetricAccuracy
 DATASET = 'cifar10'
 # CLF = 'dnr'
 # CLF = 'hybrid_rbfnet_svm'
-# CLF = 'dnr_rbf'
-CLF = 'dnr_rbf_tr_init'
+CLF = 'dnr_rbf'
+# CLF = 'dnr_rbf_tr_init'
 
 # Load data
 random_state = 999

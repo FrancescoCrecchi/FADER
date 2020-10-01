@@ -71,7 +71,7 @@ if __name__ == '__main__':
     layer_clf = {}
     # Computing features sizes
     n_feats = [CArray(dnn.get_layer_shape(l)[1:]).prod() for l in layers]
-    n_hiddens = [1000, 600, 100]
+    n_hiddens = [500, 300, 100]
     n_combiner = 100
     for i in range(len(layers)):
         layer_clf[layers[i]] = init_rbf_net(n_feats[i], n_hiddens[i], dnn.n_classes, random_state, EPOCHS, BS, LOSS, WD)

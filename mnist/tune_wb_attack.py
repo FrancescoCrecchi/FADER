@@ -20,8 +20,8 @@ CLF = 'dnr'
 # CLF = 'rbfnet_nr_like_10_wd_0e+00'
 # CLF = os.path.join('ablation_study', 'rbf_net_nr_sv_10_wd_0e+00')
 
-USE_SMOOTHING = False
-N_SAMPLES = 100
+USE_SMOOTHING = True
+N_SAMPLES = 30
 N_PLOTS = 10
 
 random_state = 999
@@ -67,7 +67,7 @@ tr_sample = vl[tr_idxs, :]
 
 # Defining attack
 noise_type = 'l2'  # Type of perturbation 'l1' or 'l2'
-dmax = 5.0  # Maximum perturbation
+dmax = 3.0  # Maximum perturbation
 lb, ub = 0., 1.  # Bounds of the attack space. Can be set to `None` for unbounded
 y_target = None  # None if `error-generic` or a class label for `error-specific`
 
@@ -76,8 +76,8 @@ solver_params = {
     'eta': 0.1,
     'eta_min': 0.1,
     # 'eta_pgd': 0.01,
-    'max_iter': 40,
-    'eps': 1e-6
+    'max_iter': 100,
+    'eps': 1e-8
 }
 # solver_params = None
 pgd_attack = CAttackEvasionPGDExp(classifier=clf,

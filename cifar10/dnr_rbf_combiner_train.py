@@ -4,8 +4,12 @@ from secml.ml import CNormalizerMinMax
 from secml.ml.classifiers.reject import CClassifierDNR
 from secml.ml.peval.metrics import CMetricAccuracy
 
-from cifar10.dnr_rbf import init_rbf_net
+from cifar10.dnr_rbf import init_rbf_net, EPOCHS, BS, LOSS, WD, init_betas
 from cifar10.fit_dnn import get_datasets
+
+IN_DIM = 30
+N_CLASSES = 10
+N_HIDDENS = 100
 
 N_TRAIN, N_TEST = 10000, 1000
 if __name__ == '__main__':
@@ -20,11 +24,18 @@ if __name__ == '__main__':
     scores_dset = CDataset.load('dnr_scores_dset.gz')
 
     # Replace combiner
-    dnr._clf = init_rbf_net(30, 100, 10, random_state, 250, 32)
+    dnr._clf = init_rbf_net(IN_DIM, N_HIDDENS, N_CLASSES, random_state, EPOCHS, BS, LOSS, WD)
     # Normalize input scores
     dnr._clf.preprocess = CNormalizerMinMax()
 
     assert not dnr._clf.is_fitted(), "Something wrong here!"
+
+    # =================== GAMMA INIT. ===================
+
+    # Rule of thumb 'gamma' init
+    print("-> Gamma init. with rule of thumb <-")
+    init_betas(dnr.clf, N_HIDDENS, train_betas=False)
+    print("-> Gammas NOT trained <-")
 
     # Fit
     dnr._clf.verbose = 2 # DEBUG
@@ -47,6 +58,3 @@ if __name__ == '__main__':
 
     # Dump to disk
     dnr.save('dnr_rbf')
-
-
-

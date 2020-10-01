@@ -6,7 +6,7 @@ from secml.figure import CFigure
 from secml.ml.peval.metrics import CMetricAccuracyReject, CMetricAccuracy
 
 # PARAMETERS
-DSET = 'mnist'
+DSET = 'cifar10'
 EVAL_TYPE = 'wb'
 
 # ------------------------------------------------------
@@ -28,25 +28,27 @@ EVAL_TYPE = 'wb'
 #         'rbfnet_nr_like_wd_1e-08',
 #         # 'rbfnet_nr_like_wd_1e-10'
 #         ]
-CLFS = [
-    'dnn',
-    # 'rbfnet_5127_tr_samples',
-    'nr',
-    # 'dnr',
-    # 'rbfnet_100_fixed_betas',
-    # 'rbf_net_nr_sv_100_wd_0e+00',
-    # 'rbf_net_nr_sv_100_wd_1e-08',
-    # 'rbf_net_nr_sv_10_wd_0e+00'
-    # 'rbf_net_nr_sv_50_wd_0e+00',
-    # 'rbf_net_nr_sv_50_wd_1e-04',
-    # 'rbf_net_nr_sv_50_wd_1e-08',
-    # 'rbf_net_nr_sv_100_wd_0e+00',
-    # 'rbf_net_nr_sv_100_wd_0e+00_cat_hinge',
-    # 'rbf_net_nr_sv_100_wd_0e+00_cat_hinge_tr_init',
-    # 'dnr_rbf',
-    'dnr_rbf_tr_init',
-    'rbfnet_nr_like_10_wd_0e+00'
-    ]
+
+if DSET == 'mnist':
+    # MNIST Final
+    CLFS = [
+        'dnn',
+        'nr',
+        'rbfnet_nr_like_10_wd_0e+00',
+        'dnr',
+        'dnr_rbf_tr_init'
+        ]
+elif DSET == 'cifar10':
+    # CIFAR10 Final
+    CLFS = [
+        'dnn',
+        'nr',
+        'rbf_net_nr_sv_100_wd_0e+00_cat_hinge_tr_init',
+        'dnr',
+        'dnr_rbf'
+        ]
+else:
+    raise ValueError("Unrecognized dataset!")
 
 if DSET == 'mnist':
     EPS = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0]
@@ -62,10 +64,11 @@ N_ITER = 3      # TODO: RESTORE THIS!
 # FNAME = 'all_'+EVAL_TYPE+'_seval'
 # FNAME = 'svm_vs_rbf_nr_like'
 # FNAME = 'all_wb_seval'
-FNAME = 'all_rbfnet_tr_init'
+FNAME = EVAL_TYPE
 
 # DSET = os.path.join(DSET, 'ablation_study')
 EXTENSION = 'png'
+# EXTENSION = 'pdf'
 # ------------------------------------------------------
 
 
@@ -156,10 +159,14 @@ if __name__ == '__main__':
         # DEBUG: ========================
         # elif clf == 'nr':
         #     label = 'svm-rbf'
-        elif clf == 'rbfnet_nr_like':
-            label = 'rbfnet'
-        elif clf == 'rbfnet_nr_like_wd_0e+00':
-            label = 'rbfnet_nr_like_no_reg'
+        # elif clf == 'rbfnet_nr_like':
+        #     label = 'rbfnet'
+        # elif clf == 'rbfnet_nr_like_wd_0e+00':
+        #     label = 'rbfnet_nr_like_no_reg'
+        elif 'rbfnet' in clf or 'rbf_net' in clf:
+            label = 'nr-rbf'
+        elif 'dnr_rbf' in clf:
+            label = 'dnr-rbf'
         # DEBUG: ========================
         else:
             label = clf
