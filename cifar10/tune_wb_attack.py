@@ -16,10 +16,12 @@ from wb_dnr_surrogate import CClassifierDNRSurrogate
 from wb_nr_surrogate import CClassifierRejectSurrogate
 
 # TODO: Set this!
-CLF = 'dnr_rbf_tr_init'
+# CLF = 'nr'
+# CLF = 'dnr_rbf_tr_init'
 # CLF = os.path.join('ablation_study', 'rbfnet_100_fixed_betas')
 # CLF = os.path.join('ablation_study', 'rbfnet_5127_tr_samples')
 # CLF = os.path.join('ablation_study', 'rbf_net_nr_sv_100_wd_0e+00')
+CLF = 'rbf_net_nr_sv_100_wd_0e+00_cat_hinge_tr_init'
 
 USE_SMOOTHING = False
 N_SAMPLES = 100

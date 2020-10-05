@@ -3,11 +3,14 @@ import os
 from secml.ml.classifiers.reject import CClassifierDNR
 from secml.ml.peval.metrics import CMetricAccuracy
 
+# DATASET = 'mnist'
 DATASET = 'cifar10'
+
 # CLF = 'dnr'
 # CLF = 'hybrid_rbfnet_svm'
 CLF = 'dnr_rbf'
 # CLF = 'dnr_rbf_tr_init'
+# CLF = 'dnr_rbf_2x'
 
 # Load data
 random_state = 999

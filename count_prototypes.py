@@ -30,6 +30,7 @@ elif CLF == 'dnr':
 else:
     raise NotImplementedError()
 
-for k,v in out.items():
-    print("- {}: {}".format(k, v))
+# for k,v in out.items():
+#     print("- {}: {}".format(k, v))
+print(out)
 print("========================")

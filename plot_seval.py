@@ -7,7 +7,7 @@ from secml.ml.peval.metrics import CMetricAccuracyReject, CMetricAccuracy
 
 # PARAMETERS
 DSET = 'cifar10'
-EVAL_TYPE = 'wb'
+EVAL_TYPE = 'bb'
 
 # ------------------------------------------------------
 # CLFS = ['dnn', 'nr', 'dnr', 'tsne_rej', 'tnr']
@@ -36,8 +36,9 @@ if DSET == 'mnist':
         'nr',
         'rbfnet_nr_like_10_wd_0e+00',
         'dnr',
-        'dnr_rbf_tr_init'
-        ]
+        'dnr_rbf_tr_init',
+        # 'dnr_rbf_2x'
+    ]
 elif DSET == 'cifar10':
     # CIFAR10 Final
     CLFS = [
@@ -45,7 +46,7 @@ elif DSET == 'cifar10':
         'nr',
         'rbf_net_nr_sv_100_wd_0e+00_cat_hinge_tr_init',
         'dnr',
-        'dnr_rbf'
+        'dnr_rbf',
         ]
 else:
     raise ValueError("Unrecognized dataset!")
@@ -63,12 +64,21 @@ N_ITER = 3      # TODO: RESTORE THIS!
 
 # FNAME = 'all_'+EVAL_TYPE+'_seval'
 # FNAME = 'svm_vs_rbf_nr_like'
-# FNAME = 'all_wb_seval'
 FNAME = EVAL_TYPE
+# FNAME = 'dnr_rbf_test'
 
 # DSET = os.path.join(DSET, 'ablation_study')
-EXTENSION = 'png'
-# EXTENSION = 'pdf'
+# EXTENSION = 'png'
+EXTENSION = 'pdf'
+
+COLORS = {
+    'DNN':'tab:blue',
+    'NR':'tab:orange',
+    'NR-RBF': 'tab:green',
+    'DNR': 'tab:red',
+    'DNR-RBF': 'tab:purple'
+}
+
 # ------------------------------------------------------
 
 
@@ -176,7 +186,7 @@ if __name__ == '__main__':
 
         # Plot performance
         _, perf, perf_std = compute_performance(sec_evals_data, acc_rej_performance)
-        sp1.plot(EPS, perf, label=label, marker="o")
+        sp1.plot(EPS, perf, label=label, color=COLORS[label], marker="o")
         # Plot mean and std
         std_up = perf + perf_std
         std_down = perf - perf_std
@@ -191,7 +201,7 @@ if __name__ == '__main__':
 
         # Plot reject percentage
         _, perf, perf_std = compute_performance(sec_evals_data, rej_percentage)
-        sp2.plot(EPS, perf, label=label, marker='o')
+        sp2.plot(EPS, perf, label=label, color=COLORS[label], marker="o")
         # Plot mean and std
         std_up = perf + perf_std
         std_down = perf - perf_std
@@ -223,6 +233,6 @@ if __name__ == '__main__':
     sp2.apply_params_sec_eval()
 
     # Dump to file
-    out_file = os.path.join(DSET, FNAME)
+    out_file = os.path.join(DSET, FNAME+'.'+EXTENSION)
     print("- Saving output to file: {}".format(out_file))
-    fig.savefig(os.path.join(DSET, FNAME+'.'+EXTENSION), file_format=EXTENSION)
+    fig.savefig(out_file, file_format=EXTENSION)

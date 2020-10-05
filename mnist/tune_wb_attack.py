@@ -15,12 +15,28 @@ from mnist.deep_rbf_net import CClassifierDeepRBFNetwork
 from wb_dnr_surrogate import CClassifierDNRSurrogate
 from wb_nr_surrogate import CClassifierRejectSurrogate
 
+# Let's define a convenience function to easily plot the MNIST dataset
+def show_digits(samples, preds, labels):
+    samples = samples.atleast_2d()
+    n_display = samples.shape[0]
+    fig = CFigure(width=n_display*2, height=3)
+    for idx in range(n_display):
+        fig.subplot(2, n_display, idx+1)
+        fig.sp.xticks([])
+        fig.sp.yticks([])
+        fig.sp.imshow(samples[idx, :].reshape((28, 28)), cmap='gray')
+        fig.sp.title("{} ({})".format(labels[idx].item(), preds[idx].item()),
+                     color=("green" if labels[idx].item()==preds[idx].item() else "red"))
+
+    fig.savefig("tune_wb_attack_digits.png")
+
 # TODO: Set this!
-CLF = 'dnr'
+# CLF = 'dnr'
 # CLF = 'rbfnet_nr_like_10_wd_0e+00'
 # CLF = os.path.join('ablation_study', 'rbf_net_nr_sv_10_wd_0e+00')
+CLF = 'dnr_rbf_tr_init'
 
-USE_SMOOTHING = True
+USE_SMOOTHING = False
 N_SAMPLES = 30
 N_PLOTS = 10
 
@@ -53,7 +69,7 @@ elif "rbf_net" in CLF or "rbfnet" in CLF:
 #     clf.load_model(CLF + '.pkl')
 else:
     raise ValueError("Unknown classifier!")
-clf.verbose = 1     # INFO
+clf.verbose = 2     # INFO
 
 # Check test performance
 y_pred = clf.predict(ts.X, return_decision_function=False)
@@ -75,9 +91,9 @@ y_target = None  # None if `error-generic` or a class label for `error-specific`
 solver_params = {
     'eta': 0.1,
     'eta_min': 0.1,
-    # 'eta_pgd': 0.01,
+    'eta_pgd': 0.1,
     'max_iter': 100,
-    'eps': 1e-8
+    'eps': 1e-12
 }
 # solver_params = None
 pgd_attack = CAttackEvasionPGDExp(classifier=clf,
@@ -100,13 +116,16 @@ eva_y_pred, _, eva_adv_ds, _ = pgd_attack.run(sample.X, sample.Y)    # double_in
 assert dmax > 0, "Wrong dmax!"
 perf = CMetricAccuracyReject().performance_score(y_true=sample.Y, y_pred=eva_y_pred)
 print("Performance under attack: {0:.2f}".format(perf))
+# debug plot
+# show_digits(eva_adv_ds.X, clf.predict(eva_adv_ds.X), eva_adv_ds.Y)
 
 # # Plot N_PLOTS random attack samples
 # sel_idxs = CArray.randsample(sample.X.shape[0], shape=N_PLOTS, random_state=random_state)
 # selected = sample[sel_idxs, :]
 
 # TODO: Select "not evading" samples!
-not_evading_samples = sample[(eva_y_pred == sample.Y).logical_or(eva_y_pred == -1), :]
+not_evading_idxs = (eva_y_pred == sample.Y).logical_or(eva_y_pred == -1)
+not_evading_samples = sample[not_evading_idxs, :]
 selected = not_evading_samples
 # not_evading_samples.save("not_evading_wb_"+CLF)
 
@@ -144,6 +163,8 @@ for i in range(N):
     sp2.legend()
 
 fig.savefig("wb_attack_tuning.png")
+# debug plot
+show_digits(eva_adv_ds[not_evading_idxs, :].X, clf.predict(eva_adv_ds[not_evading_idxs, :].X), eva_adv_ds[not_evading_idxs, :].Y)
 
 # Dump attack to disk
 pgd_attack.verbose = 0

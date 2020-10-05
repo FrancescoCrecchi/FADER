@@ -2,13 +2,31 @@ import argparse
 import os
 
 from secml.adv.attacks import CAttackEvasionPGDExp, CAttackEvasionPGD
+from secml.adv.seceval import CSecEval
 from secml.array import CArray
 from secml.core import CCreator
 from secml.ml.classifiers.reject import CClassifierRejectThreshold, CClassifierDNR
 from secml.ml.peval.metrics import CMetricAccuracy, CMetricAccuracyReject
 from secml.utils import CLog
 
-from cifar10.attack_dnn import security_evaluation
+def security_evaluation(attack, dset, evals,
+                        callbacks=None,
+                        # double_init=False,
+                        save_adv_ds=False):
+
+    # Security evaluation
+    seval = CSecEval(attack=attack, param_name='dmax', param_values=evals, save_adv_ds=save_adv_ds)
+    seval.verbose = 1  # DEBUG
+
+    # Run the security evaluation using the test set
+    print("Running security evaluation...")
+    seval.run_sec_eval(dset,
+                       # callbacks=callbacks,
+                       # double_init=double_init
+                       )
+    print("Done!")
+
+    return seval
 
 
 class Callback(CCreator):
