@@ -1,4 +1,5 @@
 from secml.array import CArray
+from secml.ml import CClassifierSVM
 from secml.ml.classifiers.multiclass import CClassifierMulticlassOVA
 from secml.ml.classifiers.reject import CClassifierRejectThreshold
 from secml.ml.features import CNormalizerDNN, CNormalizerMinMax
@@ -33,8 +34,7 @@ if __name__ == '__main__':
                          batch_size=32,
                          preprocess=feat_extr,
                          random_state=random_state)
-    # nmz = CNormalizerMinMax(preprocess=tsne)
-    clf = CClassifierMulticlassOVA(classifier=CClassifierKDE, kernel=CKernelRBF(), preprocess=tsne)
+    clf = CClassifierSVM(kernel=CKernelRBF(), preprocess=tsne)
 
     # Select 10K training data and 1K test data (sampling)
     tr_idxs = CArray.randsample(vl.X.shape[0], shape=N_TRAIN, random_state=random_state)
@@ -75,20 +75,18 @@ if __name__ == '__main__':
 
     # Setting best params (external xval)
     clf.set_params({
-        'kernel.gamma': 10,
-        'preprocess.n_hiddens': [128, 128]}
+        'C': 1,
+        'kernel.gamma': 1e-2,
+        'preprocess.preprocess.n_hiddens': [128, 128]}
     )
     # Expected performance: 0.9735
 
     # We can now create a classifier with reject
-    clf.preprocess = None  # TODO: "preprocess should be passed to outer classifier..."
-    clf_rej = CClassifierRejectThreshold(clf, -1000., preprocess=tsne)
+    clf_rej = CClassifierRejectThreshold(clf, -1000.0)
 
     # We can now fit the clf_rej
-    clf_rej.preprocess.verbose = 1  # DEBUG
+    tsne.verbose = 1  # DEBUG
     clf_rej.fit(tr_sample.X, tr_sample.Y)
-
-    clf_rej.save('tsne_rej_no_threshold')
 
     # Set threshold (FPR: 10%)
     clf_rej.threshold = clf_rej.compute_threshold(0.1, ts_sample)
@@ -102,4 +100,4 @@ if __name__ == '__main__':
     print("Model Accuracy: {}".format(acc))
 
     # Dump to disk
-    clf_rej.save('tsne_rej')
+    clf_rej.save('tsne_nr')
