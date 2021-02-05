@@ -117,9 +117,13 @@ if __name__ == '__main__':
     # Load attack
     pgd_attack = CAttackEvasionPGDExp.load(
         os.path.join(args.dataset, args.clf + '_wb_attack.gz'))
+    if not hasattr(pgd_attack, '_double_init'):  # FIXME: WHY CIFAR DNN ATTACK HAS NOT _DOUBLE_INIT?
+        pgd_attack._double_init = True  # As double_init = True is default
 
     # Setting up attack workers
     pgd_attack.n_jobs = args.workers
+
+    pgd_attack.verbose = 1
 
     # Check test performance
     clf = pgd_attack.classifier
