@@ -55,7 +55,7 @@ class CClassifierRejectSurrogate(CClassifierReject):
         '''
         grad = self._clf_rej.gradient(self._cached_x, w)
 
-        if grad.norm() < 0.01:
+        if grad.norm() < 0.01 and hasattr(self._clf_rej._clf, 'kernel'):
             self.logger.debug('** Smoothing Activated ***')
             orig_grad = grad.deepcopy()  # DEBUG
 
