@@ -141,6 +141,8 @@ if __name__ == '__main__':
     sp1 = fig.subplot(2, 1, 1)
     sp2 = fig.subplot(2, 1, 2)
 
+    print("- Dataset ", DSET)
+
     # ============== CLASSIFIERS LOOP ==============
     for clf in CLFS:
 
