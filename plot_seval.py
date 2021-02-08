@@ -46,7 +46,7 @@ elif DSET == 'cifar10':
         'nr',
         'rbf_net_nr_sv_100_wd_0e+00_cat_hinge_tr_init',
         'dnr',
-        'dnr_rbf',
+        'dnr_rbf_tr_init',
         ]
 else:
     raise ValueError("Unrecognized dataset!")
