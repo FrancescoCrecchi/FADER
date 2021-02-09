@@ -46,7 +46,7 @@ elif DSET == 'cifar10':
         'nr',
         'rbf_net_nr_sv_100_wd_0e+00_cat_hinge_tr_init',
         'dnr',
-        'dnr_rbf',
+        'dnr_rbf_tr_init',
         ]
 else:
     raise ValueError("Unrecognized dataset!")
@@ -140,6 +140,8 @@ if __name__ == '__main__':
     # Sec eval plot code
     sp1 = fig.subplot(2, 1, 1)
     sp2 = fig.subplot(2, 1, 2)
+
+    print("- Dataset ", DSET)
 
     # ============== CLASSIFIERS LOOP ==============
     for clf in CLFS:
