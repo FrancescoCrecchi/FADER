@@ -96,6 +96,9 @@ if __name__ == '__main__':
     parser.add_argument("-w", "--workers", help="Number of workers to use", type=int, default=1)
     args = parser.parse_args()
 
+    ATTACK = 'PGDExp'
+    # ATTACK = 'PGD'
+
     random_state = 999
 
     if 'mnist' in args.dataset:
@@ -119,6 +122,28 @@ if __name__ == '__main__':
         os.path.join(args.dataset, args.clf + '_wb_attack.gz'))
     if not hasattr(pgd_attack, '_double_init'):  # FIXME: WHY CIFAR DNN ATTACK HAS NOT _DOUBLE_INIT?
         pgd_attack._double_init = True  # As double_init = True is default
+    pgd_attack._n_alt_init = 1
+
+    if args.dataset == 'mnist' and args.clf == 'dnr':
+        pgd_attack.solver_params = {
+            'eta': 0.1,
+            'eta_min': 0.1,
+            'eta_pgd': 0.1,
+            'max_iter': 100,
+            'eps': 1e-12
+        }
+        pgd_attack._init_solver()
+
+    if args.dataset == 'mnist' and args.clf == 'dnr_rbf_tr_init':
+        pgd_attack.solver_params = {
+            'eta': 2,
+            'eta_min': 2,
+            # 'eta_pgd': 0.1,
+            'max_iter': 100,
+            'eps': 1e-12
+        }
+        pgd_attack._double_init = True
+        pgd_attack._init_solver()
 
     # Setting up attack workers
     pgd_attack.n_jobs = args.workers

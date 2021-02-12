@@ -6,8 +6,14 @@ from secml.figure import CFigure
 from secml.ml.peval.metrics import CMetricAccuracyReject, CMetricAccuracy
 
 # PARAMETERS
-DSET = 'cifar10'
-EVAL_TYPE = 'bb'
+DSET = 'mnist'
+# DSET = 'cifar10'
+# EVAL_TYPE = 'bb'
+EVAL_TYPE = 'wb'
+
+# ATTACK = 'PGDExp'
+# ATTACK = 'PGD'
+ATTACK = None
 
 # ------------------------------------------------------
 # CLFS = ['dnn', 'nr', 'dnr', 'tsne_rej', 'tnr']
@@ -153,7 +159,10 @@ if __name__ == '__main__':
         sec_evals_data = []
         for it in range(N_ITER):
             # Load sec_eval
-            fname = os.path.join(DSET, clf + '_'+EVAL_TYPE+'_seval_it_'+str(it)+'.gz')
+            if ATTACK is not None:
+                fname = os.path.join(DSET, clf + '_'+EVAL_TYPE+'_'+ATTACK+'_seval_it_'+str(it)+'.gz')
+            else:
+                fname = os.path.join(DSET, clf + '_'+EVAL_TYPE+'_seval_it_'+str(it)+'.gz')
             if os.path.exists(fname):
                 if EVAL_TYPE == 'bb':
                     seval_data = CSecEvalData.load(fname)
