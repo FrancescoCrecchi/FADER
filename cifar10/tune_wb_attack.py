@@ -140,7 +140,7 @@ if ATTACK == 'PGDExp':
                                       dmax=dmax,
                                       solver_params=solver_params,
                                       y_target=y_target)
-    pgd_attack = CAttackEvasionPGDExp.load(CLF+'_wb_attack.gz')
+    # pgd_attack = CAttackEvasionPGDExp.load(CLF+'_wb_attack.gz')
     # pgd_attack = pgd_attack.load(CLF+'_wb_attack.gz')
     pgd_attack.verbose = 1  # DEBUG
 elif ATTACK == 'PGD':
