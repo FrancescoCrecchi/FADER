@@ -30,7 +30,7 @@ ATTACK = 'PGDExp'
 # ATTACK = 'PGDMadri'
 
 USE_SMOOTHING = False
-N_SAMPLES = 100
+N_SAMPLES = 1000
 N_PLOTS = 0
 
 random_state = 999
