@@ -96,8 +96,7 @@ lb, ub = 0., 1.  # Bounds of the attack space. Can be set to `None` for unbounde
 y_target = None  # None if `error-generic` or a class label for `error-specific`
 
 if ATTACK == 'PGDExp':
-    # solver_params = None
-    n_alt_init = 1
+
     if CLF == 'dnn':
         solver_params = {
             'eta': 1e-1,
@@ -134,7 +133,6 @@ if ATTACK == 'PGDExp':
             'eps': 1e-12
         }
         double_init = True
-        n_alt_init = 1
     elif CLF in ('dnr_rbf_tr_init', ):
         solver_params = {
             'eta': 2,
@@ -144,7 +142,6 @@ if ATTACK == 'PGDExp':
             'eps': 1e-12
         }
         double_init = True
-        n_alt_init = 1
     else:
         solver_params = None
         double_init = True
