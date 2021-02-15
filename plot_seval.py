@@ -197,6 +197,7 @@ if __name__ == '__main__':
 
         # Plot performance
         _, perf, perf_std = compute_performance(sec_evals_data, acc_rej_performance)
+        print(perf)
         sp1.plot(EPS, perf, label=label, color=COLORS[label], marker="o")
         # Plot mean and std
         std_up = perf + perf_std
