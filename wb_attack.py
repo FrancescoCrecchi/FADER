@@ -98,16 +98,18 @@ if __name__ == '__main__':
 
     random_state = 999
 
-    if 'mnist' in args.dataset:
+    if "imagenette" in args.dataset:
+        from imagenette.dataset_loading import load_imagenet
+        EPS = CArray([0, 0.025, 0.05, 0.1, 0.2])
+        ts = load_imagenet()
+    elif 'mnist' in args.dataset:
         from mnist.fit_dnn import get_datasets
         EPS = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0]
+        _, _, ts = get_datasets(random_state)
     else:
         from cifar10.fit_dnn import get_datasets
         EPS = CArray([0, 0.05, 0.1, 0.2, 0.4, 1.0, 2.0])
-
-    print("- Dataset ", args.dataset)
-
-    tr, _, ts = get_datasets(random_state)
+        _, _, ts = get_datasets(random_state)
 
     print("- Attacking ", args.clf)
 
