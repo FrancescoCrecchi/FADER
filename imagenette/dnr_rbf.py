@@ -1,10 +1,3 @@
-import sys
-
-sys.path.append("/home/asotgiu/paper_neurocomputing/dnr")
-sys.path.append("/home/asotgiu/paper_neurocomputing/secml-pip/src")
-import matplotlib
-matplotlib.use("Agg")
-
 from secml.array import CArray
 from secml.ml import CNormalizerMeanStd, CNormalizerMinMax, CClassifierPyTorch
 from secml.ml.classifiers.reject import CClassifierDNR
@@ -14,14 +7,15 @@ import torch
 from torch import nn, optim
 from torchvision.models import alexnet
 
-from components.c_classifier_pytorch_rbf_network import CClassifierPyTorchRBFNetwork
+from components.c_classifier_pytorch_rbf_network import \
+    CClassifierPyTorchRBFNetwork
 from components.rbf_network import RBFNetwork, CategoricalHingeLoss
 from imagenette.dataset_loading import load_imagenette, load_imagenet
 
 
 EPOCHS = 250
-BS = 32
-LOSS = 'cat_hinge' # 'xentr'
+BS = 64
+LOSS = 'cat_hinge'  # 'xentr'
 WD = 0.0
 FNAME = 'dnr_rbf_tr_init'
 N_JOBS = 1
@@ -52,9 +46,11 @@ def init_rbf_net(d, h, c, random_state, epochs, bs, loss, weight_decay):
                                         batch_size=bs,
                                         random_state=random_state)
 
+
 def init_betas(rbfnet, h, train_betas=True):
     d = rbfnet.model.n_features[0]
-    rbfnet.model.betas = [torch.Tensor(CArray([1 / d] * h).tondarray()).to(rbfnet._device)]
+    rbfnet.model.betas = [
+        torch.Tensor(CArray([1 / d] * h).tondarray()).to(rbfnet._device)]
     rbfnet.model.train_betas = train_betas
 
 
@@ -70,7 +66,7 @@ if __name__ == '__main__':
     linear = nn.Linear(in_features=4096, out_features=10, bias=True)
     linear.weight = nn.Parameter(
         net.classifier[-1].weight[
-        [0, 217, 482, 491, 497, 566, 569, 571, 574, 701], :])
+          [0, 217, 482, 491, 497, 566, 569, 571, 574, 701], :])
     linear.bias = nn.Parameter(
         net.classifier[-1].bias[
             [0, 217, 482, 491, 497, 566, 569, 571, 574, 701]])
@@ -91,12 +87,15 @@ if __name__ == '__main__':
     layer_clf = {}
     # Computing features sizes
     n_feats = [CArray(dnn.get_layer_shape(l)[1:]).prod() for l in layers]
-    n_hiddens = [500, 300, 100]
+    n_hiddens = [500, 200, 200]
     n_combiner = 100
     for i in range(len(layers)):
-        layer_clf[layers[i]] = init_rbf_net(n_feats[i], n_hiddens[i], dnn.n_classes, random_state, EPOCHS, BS, LOSS, WD)
+        layer_clf[layers[i]] = init_rbf_net(
+            n_feats[i], n_hiddens[i], dnn.n_classes, random_state, EPOCHS,
+            BS, LOSS, WD)
 
-    combiner = init_rbf_net(dnn.n_classes*len(layers), n_combiner, dnn.n_classes, random_state, EPOCHS, BS, LOSS, WD)
+    combiner = init_rbf_net(dnn.n_classes*len(layers), n_combiner,
+                            dnn.n_classes, random_state, EPOCHS, BS, LOSS, WD)
     # Normalizer Min-Max as preprocess
     combiner.preprocess = CNormalizerMinMax()
 
@@ -104,9 +103,11 @@ if __name__ == '__main__':
     dnr.n_jobs = N_JOBS
 
     # Select 10K training data and 1K test data (sampling)
-    tr_idxs = CArray.randsample(vl.X.shape[0], shape=N_TRAIN, random_state=random_state)
+    tr_idxs = CArray.randsample(vl.X.shape[0], shape=N_TRAIN,
+                                random_state=random_state)
     tr_sample = vl[tr_idxs, :]
-    ts_idxs = CArray.randsample(ts.X.shape[0], shape=N_TEST, random_state=random_state)
+    ts_idxs = CArray.randsample(ts.X.shape[0], shape=N_TEST,
+                                random_state=random_state)
     ts_sample = ts[ts_idxs, :]
 
     # =================== PROTOTYPE INIT. ===================
@@ -116,7 +117,8 @@ if __name__ == '__main__':
     proto = CArray.zeros((h, tr_sample.X.shape[1]))
     n_proto_per_class = h // dnn.n_classes
     for c in range(dnn.n_classes):
-        proto[c * n_proto_per_class: (c + 1) * n_proto_per_class, :] = tr_sample.X[tr_sample.Y == c, :][:n_proto_per_class, :]
+        proto[c * n_proto_per_class: (c + 1) * n_proto_per_class, :] = \
+            tr_sample.X[tr_sample.Y == c, :][:n_proto_per_class, :]
     # Compute
     # comb_proto = CArray.zeros((sum(n_hiddens), len(dnr._layers) * dnn.n_classes))
     # count = 0
