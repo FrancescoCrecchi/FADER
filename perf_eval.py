@@ -20,12 +20,15 @@ if __name__ == '__main__':
 
     if DATASET == 'mnist':
         from mnist.fit_dnn import get_datasets
+        tr, _, _ = get_datasets(random_state)
     elif DATASET == 'cifar10':
         from cifar10.fit_dnn import get_datasets
+        tr, _, _ = get_datasets(random_state)
+    elif DATASET == 'imagenette':
+        from imagenette.dataset_loading import load_imagenette
+        tr = load_imagenette(exclude_val=True)
     else:
         ValueError("Unrecognized dataset!")
-
-    tr, _, _ = get_datasets(random_state)
 
     # Load (pre-trained) classifier
     CPATH = join(DATASET, CLF + '.gz')

@@ -1,7 +1,3 @@
-import sys
-sys.path.append("/home/asotgiu/paper_neurocomputing/dnr")
-sys.path.append("/home/asotgiu/paper_neurocomputing/secml-pip/src")
-
 from secml.array import CArray
 from secml.ml import CKernelRBF, CNormalizerMeanStd, CClassifierPyTorch
 from secml.ml.classifiers.reject import CClassifierDNR
@@ -26,7 +22,7 @@ if __name__ == '__main__':
     linear = nn.Linear(in_features=4096, out_features=10, bias=True)
     linear.weight = nn.Parameter(
         net.classifier[-1].weight[
-        [0, 217, 482, 491, 497, 566, 569, 571, 574, 701], :])
+          [0, 217, 482, 491, 497, 566, 569, 571, 574, 701], :])
     linear.bias = nn.Parameter(
         net.classifier[-1].bias[
             [0, 217, 482, 491, 497, 566, 569, 571, 574, 701]])
@@ -48,13 +44,13 @@ if __name__ == '__main__':
     dnr = CClassifierDNR(combiner, layer_clf, dnn, layers, -1000)
 
     '''
-        Setting classifiers parameters (A. Sotgiu)
+        Setting classifiers parameters
         IMAGENETTE		C	    gamma
         -----------------------------
         combiner	    1e-4	1
-        classifier:3    10	    1e-3
-        classifier:4    1	    1e-3
-        classifier:5    1e-1	1e-2
+        classifier:3    1	    1e-4
+        classifier:4    1	    1e-4
+        classifier:5    1    	1e-4
         '''
     dnr.set_params({
         'classifier:3.C': 1,

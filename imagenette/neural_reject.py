@@ -1,8 +1,3 @@
-import sys
-
-sys.path.append("/home/asotgiu/paper_neurocomputing/dnr")
-sys.path.append("/home/asotgiu/paper_neurocomputing/secml-pip/src")
-
 from secml.ml.features import CNormalizerDNN, CNormalizerMeanStd
 from secml.ml import CClassifierPyTorch, CClassifierSVM, CKernelRBF
 from secml.ml.classifiers.reject import CClassifierRejectThreshold
@@ -26,9 +21,11 @@ if __name__ == '__main__':
     net = alexnet(pretrained=True)
     linear = nn.Linear(in_features=4096, out_features=10, bias=True)
     linear.weight = nn.Parameter(
-        net.classifier[-1].weight[[0, 217, 482, 491, 497, 566, 569, 571, 574, 701], :])
+        net.classifier[-1].weight[
+          [0, 217, 482, 491, 497, 566, 569, 571, 574, 701], :])
     linear.bias = nn.Parameter(
-        net.classifier[-1].bias[[0, 217, 482, 491, 497, 566, 569, 571, 574, 701]])
+        net.classifier[-1].bias[
+            [0, 217, 482, 491, 497, 566, 569, 571, 574, 701]])
     net.classifier[-1] = linear
     dnn = CClassifierPyTorch(
         net, pretrained=True, input_shape=(3, 224, 224),
@@ -46,9 +43,11 @@ if __name__ == '__main__':
     # clf.n_jobs = 10
 
     # Select 10K training data and 1K test data (sampling)
-    tr_idxs = CArray.randsample(vl.X.shape[0], shape=N_TRAIN, random_state=random_state)
+    tr_idxs = CArray.randsample(vl.X.shape[0], shape=N_TRAIN,
+                                random_state=random_state)
     tr_sample = vl[tr_idxs, :]
-    ts_idxs = CArray.randsample(ts.X.shape[0], shape=N_TEST, random_state=random_state)
+    ts_idxs = CArray.randsample(ts.X.shape[0], shape=N_TEST,
+                                random_state=random_state)
     ts_sample = ts[ts_idxs, :]
 
     # # Xval
@@ -72,7 +71,6 @@ if __name__ == '__main__':
     #
     # print("The best training parameters are: ",
     #       [(k, best_params[k]) for k in sorted(best_params)])
-
 
     # HACK: Avoid xval! (A. Sotgiu)
     clf.set_params({
