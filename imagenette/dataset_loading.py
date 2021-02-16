@@ -5,6 +5,7 @@ from torchvision import transforms
 from secml.array import CArray
 from secml.data import CDataset
 from secml.utils import fm
+from secml.settings import SECML_DS_DIR
 
 import numpy as np
 
@@ -22,16 +23,17 @@ def _flatten(x):
 
 
 def load_imagenet():
-    if fm.file_exist("imagenet_val.gz"):
+    if fm.file_exist(fm.join(SECML_DS_DIR, "imagenet_val.gz")):
         return CDataset.load("imagenet_val.gz")
     else:
         transform = transforms.Compose([transforms.Resize((256, 256)),
                                         transforms.CenterCrop(224),
                                         transforms.ToTensor()])
         n_feat = 224 * 224 * 3
-        imagenet_data = ImageNet('/home/asotgiu', split="val", transform=transform)
-        data_loader = torch.utils.data.DataLoader(imagenet_data, batch_size=128,
-                                                  shuffle=False, num_workers=10)
+        imagenet_data = ImageNet(
+            SECML_DS_DIR, split="val", transform=transform)
+        data_loader = torch.utils.data.DataLoader(
+            imagenet_data, batch_size=128, shuffle=False, num_workers=10)
         X = CArray.zeros(shape=(500, n_feat))
         Y = CArray.zeros(shape=(500,))
         start = 0
@@ -47,7 +49,7 @@ def load_imagenet():
         for i, c in enumerate(_imagenette_classes):
             Y[Y == c] = i
         dataset = CDataset(X, Y.astype(int))
-        dataset.save("imagenet_val.gz")
+        dataset.save(fm.join(SECML_DS_DIR, "imagenet_val.gz"))
         return dataset
 
 
@@ -64,8 +66,8 @@ def load_imagenette(ds="all", exclude_val=False):
     folder = "imagenette2-320"
     if exclude_val:
         folder += "-no-val"
-    train = ImageFolder(f"../../{folder}/train", transform)
-    val = ImageFolder(f"../../{folder}/val", transform)
+    train = ImageFolder(fm.join(SECML_DS_DIR, folder, "train"), transform)
+    val = ImageFolder(fm.join(SECML_DS_DIR, folder, "val"), transform)
     image_folder = torch.utils.data.ConcatDataset([train, val])
     data_loader = torch.utils.data.DataLoader(image_folder, batch_size=128,
                                               shuffle=False, num_workers=10)
