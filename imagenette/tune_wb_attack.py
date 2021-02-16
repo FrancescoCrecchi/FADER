@@ -1,10 +1,3 @@
-import sys
-
-sys.path.append("/home/asotgiu/paper_neurocomputing/dnr")
-sys.path.append("/home/asotgiu/paper_neurocomputing/secml-pip/src")
-import matplotlib
-matplotlib.use("Agg")
-
 from secml.adv.attacks import CAttackEvasionPGDExp, CAttackEvasionPGD
 from secml.array import CArray
 from secml.figure import CFigure
@@ -23,12 +16,16 @@ from wb_nr_surrogate import CClassifierRejectSurrogate
 
 # TODO: Set this!
 # CLF = 'dnn'
-CLF = 'nr'
+# CLF = 'nr'
 # CLF = 'dnr'
-# CLF = 'dnr_rbf_tr_init'
+CLF = 'dnr_rbf_tr_init'
 # CLF = 'rbf_net_classifier:5_100_wd_0e+00_cat_hinge'
 
-USE_SMOOTHING = True
+ATTACK = 'PGDExp'
+# ATTACK = 'PGD'
+# ATTACK = 'PGDMadri'
+
+USE_SMOOTHING = False
 N_SAMPLES = 100
 N_PLOTS = 10
 
@@ -87,50 +84,199 @@ tr_sample = vl[tr_idxs, :]
 
 # Defining attack
 noise_type = 'l2'   # Type of perturbation 'l1' or 'l2'
-dmax = 0.75          # Maximum perturbation
+dmax = 1.0          # Maximum perturbation
 lb, ub = 0., 1.     # Bounds of the attack space. Can be set to `None` for unbounded
 y_target = None     # None if `error-generic` or a class label for `error-specific`
 
-# Should be chosen depending on the optimization problem
-solver_params = {
-    'eta': 1e-2,
-    'eta_min': 1e-2,
-    # 'eta_pgd': 0.1,
-    'max_iter': 100,
-    'eps': 1e-8
-}
-# solver_params = None
-pgd_attack = CAttackEvasionPGDExp(classifier=clf,
-                                  # surrogate_classifier=clf,
-                                  double_init_ds=tr_sample,
-                                  distance=noise_type,
-                                  lb=lb, ub=ub,
-                                  dmax=dmax,
-                                  solver_params=solver_params,
-                                  y_target=y_target,
-                                  n_alt_init=3)
-pgd_attack.verbose = 1  # DEBUG
+if ATTACK == 'PGDExp':
 
-# # HACK: Setting 'n_jobs' param
-# pgd_attack.n_jobs = 1
+    if CLF == 'dnn':
+        solver_params = {
+            'eta': 1e-1,
+            'eta_min': 0.1,
+            'eta_pgd': 0.1,
+            'max_iter': 100,
+            'eps': 1e-4
+        }
+        double_init = True
+    elif CLF == 'nr':
+        solver_params = {
+            'eta': 0.1,
+            'eta_min': 0.1,
+            'eta_pgd': 0.1,
+            'max_iter': 100,
+            'eps': 1e-4
+        }
+        double_init = True
+    elif CLF in ('rbfnet_nr_like_10_wd_0e+00', ):
+        solver_params = {
+            'eta': 0.1,
+            'eta_min': 0.1,
+            # 'eta_pgd': 0.1,
+            'max_iter': 100,
+            'eps': 1e-12
+        }
+        double_init = True
+    elif CLF in ('dnr', ):
+        solver_params = {
+            'eta': 0.1,
+            'eta_min': 0.1,
+            'eta_pgd': 0.1,
+            'max_iter': 100,
+            'eps': 1e-12
+        }
+        double_init = True
+    elif CLF in ('dnr_rbf_tr_init', ):
+        solver_params = {
+            'eta': 2,
+            'eta_min': 2,
+            # 'eta_pgd': 0.1,
+            'max_iter': 100,
+            'eps': 1e-12
+        }
+        double_init = True
+    else:
+        solver_params = None
+        double_init = True
+
+    pgd_attack = CAttackEvasionPGDExp(classifier=clf,
+                                      double_init_ds=tr_sample,
+                                      double_init=double_init,
+                                      distance=noise_type,
+                                      lb=lb, ub=ub,
+                                      dmax=dmax,
+                                      solver_params=solver_params,
+                                      y_target=y_target)
+    # pgd_attack = CAttackEvasionPGDExp.load(CLF+'_wb_attack.gz')
+    # pgd_attack = pgd_attack.load(CLF+'_wb_attack.gz')
+    pgd_attack.verbose = 1  # DEBUG
+    # pgd_attack.dmax = 1.5
+elif ATTACK == 'PGD':
+    # Should be chosen depending on the optimization problem
+    if CLF == 'dnn':
+        solver_params = {
+            'eta': 0.1,
+            'max_iter': 100,
+            'eps': 1e-4
+        }
+        double_init = False
+    elif CLF in ('nr', ):
+        solver_params = {
+            'eta': 1e-1,
+            'max_iter': 200,
+            'eps': 1e-8
+        }
+        double_init = False
+    elif CLF in ('rbfnet_nr_like_10_wd_0e+00', ):
+        solver_params = {
+            'eta': 1e-1,
+            'max_iter': 200,
+            'eps': 1e-8
+        }
+        double_init = False
+    elif CLF in ('dnr', ):
+        solver_params = {
+            'eta': 1e-1,
+            'max_iter': 200,
+            'eps': 1e-12
+        }
+        double_init = False
+    elif CLF in ('dnr_rbf_tr_init',):
+        solver_params = {
+            'eta': 1e-1,
+            'max_iter': 200,
+            'eps': 1e-4
+        }
+        double_init = False
+    else:
+        double_init = False
+        solver_params = None
+    # solver_params = None
+    pgd_attack = CAttackEvasionPGD(classifier=clf,
+                                   double_init_ds=tr_sample,
+                                   double_init=double_init,
+                                   distance=noise_type,
+                                   lb=lb, ub=ub,
+                                   dmax=dmax,
+                                   solver_params=solver_params,
+                                   y_target=y_target)
+    pgd_attack.verbose = 2  # DEBUG
+elif ATTACK == 'PGDMadri':
+    # Should be chosen depending on the optimization problem
+    if CLF == 'dnn':
+        solver_params = {
+            'eta': 2.5 * dmax / 100,
+            'max_iter': 100,
+            'eps': 1e-8
+        }
+        double_init = False
+    elif CLF in ('nr', ):
+        solver_params = {
+            'eta': 2.5 * dmax / 100,
+            'max_iter': 100,
+            'eps': 1e-8
+        }
+        double_init = False
+    elif CLF in ('rbfnet_nr_like_10_wd_0e+00', ):
+        solver_params = {
+            'eta': 2.5 * dmax / 100,
+            'max_iter': 100,
+            'eps': 1e-8
+        }
+        double_init = False
+    elif CLF in ('dnr', ):
+        solver_params = {
+            'eta': 2.5 * dmax / 100,
+            'max_iter': 100,
+            'eps': 1e-12
+        }
+        double_init = False
+    elif CLF in ('dnr_rbf_tr_init',):
+        solver_params = {
+            'eta': 2.5 * dmax / 100,
+            'max_iter': 100,
+            'eps': 1e-8
+        }
+        double_init = False
+    else:
+        double_init = False
+        solver_params = None
+    # solver_params = None
+    pgd_attack = CAttackEvasionPGD(classifier=clf,
+                                   double_init_ds=tr_sample,
+                                   double_init=double_init,
+                                   distance=noise_type,
+                                   lb=lb, ub=ub,
+                                   dmax=dmax,
+                                   solver_params=solver_params,
+                                   y_target=y_target)
+    pgd_attack.verbose = 2  # DEBUG
+else:
+    raise ValueError("Unknown attack")
 
 # Attack N_SAMPLES
 # sample = ts[:N_SAMPLES, :]
-idxs = CArray.randsample(ts.X.shape[0], shape=N_SAMPLES, random_state=1234)
-sample = ts[idxs, :]
-eva_y_pred, _, eva_adv_ds, _ = pgd_attack.run(sample.X, sample.Y) #, double_init=False)
+sel_idxs = CArray.randsample(ts.X.shape[0], shape=N_SAMPLES, random_state=random_state)
+sample = ts[sel_idxs, :]
+eva_y_pred, _, eva_adv_ds, _ = pgd_attack.run(sample.X, sample.Y)    # double_init=False
+
+print(eva_y_pred)
+print(sample.Y)
 
 # Compute attack performance
 assert dmax > 0, "Wrong dmax!"
 perf = CMetricAccuracyReject().performance_score(y_true=sample.Y, y_pred=eva_y_pred)
 print("Performance under attack: {0:.2f}".format(perf))
+# debug plot
+# show_digits(eva_adv_ds.X, clf.predict(eva_adv_ds.X), eva_adv_ds.Y)
 
 # # Plot N_PLOTS random attack samples
 # sel_idxs = CArray.randsample(sample.X.shape[0], shape=N_PLOTS, random_state=random_state)
 # selected = sample[sel_idxs, :]
 
 # TODO: Select "not evading" samples!
-not_evading_samples = sample[(eva_y_pred == sample.Y).logical_or(eva_y_pred == -1), :]
+not_evading_idxs = (eva_y_pred == sample.Y).logical_or(eva_y_pred == -1)
+not_evading_samples = sample[not_evading_idxs, :]
 selected = not_evading_samples
 # not_evading_samples.save("not_evading_wb_"+CLF)
 
@@ -142,7 +288,6 @@ if N > 0:
         x0, y0 = selected[i, :].X, selected[i, :].Y
 
         # Rerun attack to have '_f_seq' and 'x_seq'
-        pgd_attack.verbose = 2
         _ = pgd_attack.run(x0, y0)
 
         # Loss curve
@@ -161,7 +306,7 @@ if N > 0:
             scores[k, :] = clf.decision_function(pgd_attack.x_seq[k, :])
 
         sp2 = fig.subplot(N, 2, i*2+2)
-        for k in clf.classes:
+        for k in range(-1, clf.n_classes-1):
             sp2.plot(scores[:, k], marker='o', label=str(k))
         sp2.grid()
         sp2.xticks(range(pgd_attack.x_seq.shape[0]))
@@ -169,8 +314,8 @@ if N > 0:
         sp2.ylabel('Confidence')
         sp2.legend()
 
-    fig.savefig("wb_attack_tuning_{:}.png".format(CLF))
+    fig.savefig("wb_attack_tuning.png")
 
 # Dump attack to disk
 pgd_attack.verbose = 0
-pgd_attack.save(CLF+'_wb_attack')
+pgd_attack.save(CLF+'_wb_'+ATTACK+'_attack')
