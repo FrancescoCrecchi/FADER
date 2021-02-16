@@ -100,7 +100,7 @@ if __name__ == '__main__':
 
     if "imagenette" in args.dataset:
         from imagenette.dataset_loading import load_imagenet
-        EPS = CArray([0, 0.025, 0.05, 0.1, 0.2])
+        EPS = CArray([0, 1.0])
         ts = load_imagenet()
     elif 'mnist' in args.dataset:
         from mnist.fit_dnn import get_datasets
@@ -117,15 +117,10 @@ if __name__ == '__main__':
     #     pgd_attack = CAttackEvasionPGD.load(args.clf + '_attack.gz')
     # else:
     # Load attack
-    pgd_attack = CAttackEvasionPGDExp.load(
-        os.path.join(args.dataset, args.clf + '_wb_attack.gz'))
-    if not hasattr(pgd_attack, '_double_init'):  # FIXME: WHY CIFAR DNN ATTACK HAS NOT _DOUBLE_INIT?
-        pgd_attack._double_init = True  # As double_init = True is default
+    pgd_attack = CAttackEvasionPGDExp.load(os.path.join(args.dataset, args.clf + '_wb_attack.gz'))
 
     # Setting up attack workers
     pgd_attack.n_jobs = args.workers
-
-    pgd_attack.verbose = 1
 
     # Check test performance
     clf = pgd_attack.classifier
@@ -172,5 +167,4 @@ if __name__ == '__main__':
                                        save_adv_ds=True)
 
         # Save to disk
-        sec_eval.save(os.path.join(
-            args.dataset, args.clf + '_wb_seval_it_' + str(it)))
+        sec_eval.save(os.path.join(args.dataset, args.clf + '_wb_seval_it_' + str(it)))
