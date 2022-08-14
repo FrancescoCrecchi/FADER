@@ -38,7 +38,7 @@ ATTACK = None
 if DSET == 'mnist':
     # MNIST Final
     CLFS = [
-        'dnn',
+        # 'dnn',
         'nr',
         'rbfnet_nr_like_10_wd_0e+00',
         'dnr',
@@ -74,8 +74,8 @@ FNAME = EVAL_TYPE
 # FNAME = 'dnr_rbf_test'
 
 # DSET = os.path.join(DSET, 'ablation_study')
-# EXTENSION = 'png'
-EXTENSION = 'pdf'
+EXTENSION = 'png'
+# EXTENSION = 'pdf'
 
 COLORS = {
     'DNN':'tab:blue',
@@ -240,7 +240,7 @@ if __name__ == '__main__':
     sp2.xticks(EPS)
     sp2.xticklabels(EPS)
     # sp2.ylim(-0.05, 1.05)
-    sp2.xlabel('dmax')
+    sp2.xlabel('$\varepsilon$')
     sp2.ylabel('Rejection rate') #("% Reject")
     sp2.apply_params_sec_eval()
 

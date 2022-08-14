@@ -305,3 +305,10 @@ Temporary Items
 .nfs*
 
 /.idea/
+
+# FC
+**.gz*
+**.log
+**.pdf
+**.png
+**.zip
